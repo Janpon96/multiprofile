@@ -1,0 +1,12 @@
+{
+  "status": "NOT_MEASURED",
+  "reason": "Benchmark harness is not implemented; no latency, CPU or RAM was sampled.",
+  "timestamp": "2026-10-29T08:43:42.670Z",
+  "platform": "Windows_NT 10.0.19045 (x64)",
+  "totalCpuCores": 6,
+  "totalMemoryBytes": 34295934976,
+  "freeMemoryBytes": 18209923072,
+  "configuredProfiles": 10,
+  "durationMinutes": 1,
+  "metrics": null
+}

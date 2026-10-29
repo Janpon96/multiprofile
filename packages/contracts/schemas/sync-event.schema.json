@@ -1,0 +1,794 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Canonical sync envelope v1; memory payload, metadata-only ledger",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "session_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "epoch": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "event_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "seq": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "source_profile_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "logical_tab_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "frame_path": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "object",
+            "properties": {
+              "strategy": {
+                "type": "string",
+                "enum": [
+                  "testId",
+                  "role",
+                  "id",
+                  "name",
+                  "label",
+                  "css"
+                ]
+              },
+              "value": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "role": {
+                "type": "string",
+                "maxLength": 64
+              }
+            },
+            "required": [
+              "strategy",
+              "value"
+            ],
+            "additionalProperties": false
+          },
+          "expected_origin": {
+            "type": "string",
+            "pattern": "^https?://",
+            "maxLength": 2048
+          }
+        },
+        "required": [
+          "owner",
+          "expected_origin"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 8
+    },
+    "route_key": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "route_generation": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "source_document_token": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "dom.click",
+        "dom.double_click",
+        "pointer.gesture",
+        "text.patch",
+        "key.command",
+        "key.raw",
+        "scroll.set",
+        "scroll.wheel",
+        "navigate",
+        "variable.fill",
+        "control.release"
+      ]
+    },
+    "target": {},
+    "payload": {},
+    "created_at": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 40
+    },
+    "ttl_ms": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 30000
+    },
+    "trace_id": {
+      "type": "string",
+      "format": "uuid"
+    }
+  },
+  "required": [
+    "schema_version",
+    "session_id",
+    "epoch",
+    "event_id",
+    "seq",
+    "source_profile_id",
+    "logical_tab_id",
+    "frame_path",
+    "route_key",
+    "route_generation",
+    "source_document_token",
+    "type",
+    "target",
+    "payload",
+    "created_at",
+    "ttl_ms",
+    "trace_id"
+  ],
+  "additionalProperties": false,
+  "definitions": {
+    "domTarget": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "dom"
+        },
+        "element_kind": {
+          "type": "string",
+          "enum": [
+            "button",
+            "link",
+            "input",
+            "textarea",
+            "checkbox",
+            "radio",
+            "select",
+            "container",
+            "other"
+          ]
+        },
+        "candidates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "strategy": {
+                "type": "string",
+                "enum": [
+                  "testId",
+                  "role",
+                  "id",
+                  "name",
+                  "label",
+                  "css"
+                ]
+              },
+              "value": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "role": {
+                "type": "string",
+                "maxLength": 64
+              }
+            },
+            "required": [
+              "strategy",
+              "value"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 1,
+          "maxItems": 8
+        }
+      },
+      "required": [
+        "kind",
+        "element_kind",
+        "candidates"
+      ],
+      "additionalProperties": false
+    },
+    "coordinateTarget": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "coordinate"
+        },
+        "region_key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "u": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "v": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "viewport": {
+          "type": "object",
+          "properties": {
+            "width": {
+              "type": "integer",
+              "minimum": 320,
+              "maximum": 7680
+            },
+            "height": {
+              "type": "integer",
+              "minimum": 240,
+              "maximum": 4320
+            }
+          },
+          "required": [
+            "width",
+            "height"
+          ],
+          "additionalProperties": false
+        },
+        "geometry_revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "zoom": {
+          "type": "number",
+          "minimum": 0.25,
+          "maximum": 5
+        }
+      },
+      "required": [
+        "kind",
+        "region_key",
+        "u",
+        "v",
+        "viewport",
+        "geometry_revision",
+        "zoom"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "dom.click"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "properties": {
+              "button": {
+                "type": "string",
+                "enum": [
+                  "left",
+                  "middle",
+                  "right"
+                ]
+              },
+              "modifiers": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 15
+              }
+            },
+            "required": [
+              "button",
+              "modifiers"
+            ],
+            "additionalProperties": false
+          },
+          "target": {
+            "$ref": "#/definitions/domTarget"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "dom.double_click"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "properties": {
+              "button": {
+                "type": "string",
+                "enum": [
+                  "left",
+                  "middle",
+                  "right"
+                ]
+              },
+              "modifiers": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 15
+              }
+            },
+            "required": [
+              "button",
+              "modifiers"
+            ],
+            "additionalProperties": false
+          },
+          "target": {
+            "$ref": "#/definitions/domTarget"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "pointer.gesture"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "properties": {
+              "gesture_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "phase": {
+                "type": "string",
+                "enum": [
+                  "down",
+                  "move",
+                  "up",
+                  "cancel"
+                ]
+              },
+              "button": {
+                "type": "string",
+                "enum": [
+                  "left",
+                  "middle",
+                  "right",
+                  "none"
+                ]
+              },
+              "buttons": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 31
+              },
+              "modifiers": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 15
+              },
+              "dt_ms": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 10000
+              }
+            },
+            "required": [
+              "gesture_id",
+              "phase",
+              "button",
+              "buttons",
+              "modifiers",
+              "dt_ms"
+            ],
+            "additionalProperties": false
+          },
+          "target": {
+            "$ref": "#/definitions/coordinateTarget"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "text.patch"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "properties": {
+              "baseline_version": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "range_start": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "range_end": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "inserted_text": {
+                "type": "string",
+                "maxLength": 16384
+              },
+              "selection_after_start": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "selection_after_end": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "baseline_version",
+              "range_start",
+              "range_end",
+              "inserted_text",
+              "selection_after_start",
+              "selection_after_end"
+            ],
+            "additionalProperties": false
+          },
+          "target": {
+            "$ref": "#/definitions/domTarget"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "key.command"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "modifiers": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 15
+              }
+            },
+            "required": [
+              "key",
+              "modifiers"
+            ],
+            "additionalProperties": false
+          },
+          "target": {
+            "oneOf": [
+              {
+                "$ref": "#/definitions/domTarget"
+              },
+              {
+                "$ref": "#/definitions/coordinateTarget"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "key.raw"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "code": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "phase": {
+                "type": "string",
+                "enum": [
+                  "down",
+                  "up"
+                ]
+              },
+              "repeat": {
+                "type": "boolean"
+              },
+              "modifiers": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 15
+              }
+            },
+            "required": [
+              "key",
+              "code",
+              "phase",
+              "repeat",
+              "modifiers"
+            ],
+            "additionalProperties": false
+          },
+          "target": {
+            "$ref": "#/definitions/coordinateTarget"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "scroll.set"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "properties": {
+              "x_ratio": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "y_ratio": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              }
+            },
+            "required": [
+              "x_ratio",
+              "y_ratio"
+            ],
+            "additionalProperties": false
+          },
+          "target": {
+            "$ref": "#/definitions/domTarget"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "scroll.wheel"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "properties": {
+              "delta_x": {
+                "type": "number",
+                "minimum": -10000,
+                "maximum": 10000
+              },
+              "delta_y": {
+                "type": "number",
+                "minimum": -10000,
+                "maximum": 10000
+              },
+              "delta_mode": {
+                "const": 0
+              }
+            },
+            "required": [
+              "delta_x",
+              "delta_y",
+              "delta_mode"
+            ],
+            "additionalProperties": false
+          },
+          "target": {
+            "$ref": "#/definitions/coordinateTarget"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "navigate"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "properties": {
+              "action": {
+                "type": "string",
+                "enum": [
+                  "open",
+                  "reload",
+                  "back",
+                  "forward"
+                ]
+              },
+              "url": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^https?://",
+                "maxLength": 2048
+              }
+            },
+            "required": [
+              "action",
+              "url"
+            ],
+            "additionalProperties": false,
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "action": {
+                      "const": "open"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "url": {
+                      "type": "string",
+                      "pattern": "^https?://",
+                      "maxLength": 2048
+                    }
+                  }
+                },
+                "else": {
+                  "properties": {
+                    "url": {
+                      "type": "null"
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "target": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "variable.fill"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "properties": {
+              "dataset_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "dataset_revision": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "variable_name": {
+                "type": "string",
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$"
+              }
+            },
+            "required": [
+              "dataset_id",
+              "dataset_revision",
+              "variable_name"
+            ],
+            "additionalProperties": false
+          },
+          "target": {
+            "$ref": "#/definitions/domTarget"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "control.release"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "properties": {
+              "reason": {
+                "type": "string",
+                "enum": [
+                  "pause",
+                  "stop",
+                  "blur",
+                  "recovery"
+                ]
+              }
+            },
+            "required": [
+              "reason"
+            ],
+            "additionalProperties": false
+          },
+          "target": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ]
+}
