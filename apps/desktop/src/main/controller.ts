@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { PROFILE_COLORS, isProfileColor } from '@multiprofile/contracts';
 import os from 'node:os';
 import path from 'node:path';
 import { ProfileRuntimeManager } from './runtime-manager.js';
@@ -140,13 +141,23 @@ export class AppController {
       switch (req.command) {
         case 'profile.create': {
           const p = req.payload;
+          const preset = { ...(p.preset || { viewport: { width: 1280, height: 720 } }) };
+          if (preset.color !== undefined && !isProfileColor(preset.color)) {
+            throw new DomainError('UNKNOWN', 'Màu profile không hợp lệ (phải thuộc bảng màu có sẵn).');
+          }
+          // No color chosen: pick the first palette color not used yet (cycles when all are taken).
+          if (!preset.color) {
+            const used = new Set(this.profiles.list().map((x) => x.preset?.color));
+            const free = PROFILE_COLORS.find((c) => !used.has(c.hex));
+            preset.color = (free ?? PROFILE_COLORS[this.profiles.list().length % PROFILE_COLORS.length]).hex;
+          }
           resultData = this.profiles.create({
             id: p.id || randomUUID(),
             name: p.name,
             group_name: p.group_name,
             proxy_mode: p.proxy_mode || 'direct',
             proxy_id: p.proxy_id,
-            preset: p.preset || { viewport: { width: 1280, height: 720 } },
+            preset,
             start_url: p.start_url
           });
           break;
@@ -155,7 +166,17 @@ export class AppController {
         case 'profile.update': {
           const p = req.payload;
           const rev = req.expected_revision ?? p.expected_revision ?? 1;
-          resultData = this.profiles.updateConfig(p.id, rev, p);
+          // `color` is a shortcut that merges into the existing preset.
+          const next = { ...p };
+          if (p.color !== undefined) {
+            if (!isProfileColor(p.color)) {
+              throw new DomainError('UNKNOWN', 'Màu profile không hợp lệ (phải thuộc bảng màu có sẵn).');
+            }
+            const current = this.profiles.getById(p.id);
+            if (!current) throw new DomainError('UNKNOWN', 'Profile not found');
+            next.preset = { ...current.preset, ...(p.preset || {}), color: p.color };
+          }
+          resultData = this.profiles.updateConfig(p.id, rev, next);
           break;
         }
 
@@ -176,6 +197,11 @@ export class AppController {
 
         case 'profile.stop': {
           resultData = await this.runtime.stop(req.payload.id);
+          break;
+        }
+
+        case 'profile.focus': {
+          resultData = await this.runtime.focus(req.payload.id);
           break;
         }
 
@@ -204,7 +230,15 @@ export class AppController {
 
         case 'profile.duplicate': {
           const p = req.payload;
-          resultData = this.profiles.duplicateConfigOnly(p.source_id, p.new_id || randomUUID(), p.new_name);
+          // A copy gets its own color; otherwise two windows would look identical.
+          const usedColors = new Set(this.profiles.list().map((x) => x.preset?.color));
+          const freeColor = PROFILE_COLORS.find((c) => !usedColors.has(c.hex));
+          resultData = this.profiles.duplicateConfigOnly(
+            p.source_id,
+            p.new_id || randomUUID(),
+            p.new_name,
+            freeColor ? { color: freeColor.hex } : undefined
+          );
           break;
         }
 
@@ -262,23 +296,27 @@ export class AppController {
 
         case 'sync.create': {
           const p = req.payload;
+          const followerList: string[] = Array.isArray(p.follower_ids)
+            ? [...new Set<string>(p.follower_ids as string[])].filter((f) => f !== p.master_profile_id)
+            : [];
+          if (!p.master_profile_id) throw new DomainError('UNKNOWN', 'Master profile is required');
+          if (followerList.length === 0) throw new DomainError('UNKNOWN', 'Select at least one Follower different from the Master');
+          this.sync.releaseIdleMembers([p.master_profile_id, ...followerList]);
           const session = this.sync.createSession({
             id: p.id || randomUUID(),
             master_profile_id: p.master_profile_id,
             mode: p.mode || 'dom',
             failure_policy: p.failure_policy || 'strict'
           });
-          if (Array.isArray(p.follower_ids)) {
-            for (const fId of p.follower_ids) {
-              this.sync.addMember({
-                session_id: session.id,
-                profile_id: fId,
-                role: 'FOLLOWER',
-                logical_tab_id: 'default',
-                active: true
-              });
-              this.followerQueues.set(fId, new FollowerQueue(fId));
-            }
+          for (const fId of followerList) {
+            this.sync.addMember({
+              session_id: session.id,
+              profile_id: fId,
+              role: 'FOLLOWER',
+              logical_tab_id: 'default',
+              active: true
+            });
+            this.followerQueues.set(fId, new FollowerQueue(fId));
           }
           this.syncMachines.set(session.id, new SyncLifecycleMachine('DRAFT', session.epoch));
           resultData = session;

@@ -173,6 +173,93 @@
     }
     .form-control:focus { outline: none; border-color: var(--primary); }
     .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+
+    /* Guide & Documentation Styles */
+    .guide-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 18px;
+      margin-bottom: 24px;
+    }
+    .guide-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 18px 20px;
+    }
+    .guide-card-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #60a5fa;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      padding-bottom: 8px;
+    }
+    .guide-card p, .guide-card li {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+    .guide-card ul, .guide-card ol {
+      padding-left: 20px;
+      margin: 8px 0;
+    }
+    .guide-card li {
+      margin-bottom: 6px;
+    }
+    .guide-card strong {
+      color: var(--text);
+    }
+    .guide-alert {
+      background: rgba(37, 99, 235, 0.1);
+      border-left: 3px solid var(--primary);
+      padding: 10px 14px;
+      border-radius: 4px;
+      font-size: 12px;
+      color: #93c5fd;
+      margin-top: 10px;
+      line-height: 1.5;
+    }
+    .guide-alert.warning {
+      background: rgba(245, 158, 11, 0.1);
+      border-left-color: var(--warning);
+      color: #fde68a;
+    }
+    .guide-alert.danger {
+      background: rgba(239, 68, 68, 0.1);
+      border-left-color: var(--danger);
+      color: #fca5a5;
+    }
+    .guide-step-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      background: var(--primary);
+      color: white;
+      border-radius: 50%;
+      font-size: 11px;
+      font-weight: bold;
+      margin-right: 6px;
+    }
+    kbd {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 4px;
+      box-shadow: 0 1px 1px rgba(0,0,0,0.3);
+      color: #f1f5f9;
+      display: inline-block;
+      font-family: monospace;
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1;
+      padding: 3px 6px;
+      white-space: nowrap;
+    }
   </style>
 </head>
 <body>
@@ -201,6 +288,7 @@
       <div class="nav-item" onclick="switchView('layout', this)">🪟 Xếp Lưới (Tiling)</div>
       <div class="nav-item" onclick="switchView('variables', this)">📋 Biến & Dữ liệu</div>
       <div class="nav-item" onclick="switchView('diagnostics', this)">🛠️ Chẩn Đoán & Logs</div>
+      <div class="nav-item" onclick="switchView('guide', this)">📖 Hướng Dẫn Sử Dụng</div>
     </div>
 
     <!-- Content Views -->
@@ -283,12 +371,21 @@
 
         <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 20px; max-width: 650px;">
           <div class="form-group">
-            <label>Master Profile (Điều khiển chính):</label>
-            <select id="syncMasterSelect" class="form-control"></select>
+            <label style="font-weight: 600;">👑 Master Profile (Điều khiển chính - nhận thao tác click, gõ, cuộn):</label>
+            <select id="syncMasterSelect" class="form-control" onchange="renderFollowersList()"></select>
           </div>
           <div class="form-group">
-            <label>Follower Profiles (Tự động nhận thao tác):</label>
-            <select id="syncFollowerSelect" class="form-control" multiple style="height: 100px;"></select>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <label style="font-weight: 600; margin-bottom: 0;">👥 Follower Profiles (Tự động nhận thao tác): <span id="syncFollowerCountBadge" class="pill pill-direct" style="margin-left: 6px;">Đã chọn: 0</span></label>
+              <div style="display: flex; gap: 6px;">
+                <button type="button" class="btn btn-secondary" style="padding: 2px 8px; font-size: 11px;" onclick="selectAllFollowers(true)">Chọn tất cả</button>
+                <button type="button" class="btn btn-secondary" style="padding: 2px 8px; font-size: 11px;" onclick="selectAllReadyFollowers()">Chỉ chọn READY</button>
+                <button type="button" class="btn btn-secondary" style="padding: 2px 8px; font-size: 11px;" onclick="selectAllFollowers(false)">Bỏ chọn</button>
+              </div>
+            </div>
+            <div id="syncFollowerList" style="background: #0f172a; border: 1px solid var(--border); border-radius: 6px; padding: 10px; max-height: 150px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;">
+              <div style="color: var(--text-muted); font-size: 12px;">Đang tải danh sách...</div>
+            </div>
           </div>
           <div class="form-group">
             <label>Chế độ Đồng bộ:</label>
@@ -297,10 +394,17 @@
               <option value="coordinate">Coordinate Mode (Tọa độ chuẩn hóa theo tỷ lệ CSS)</option>
             </select>
           </div>
-          <div style="display: flex; gap: 10px; margin-top: 20px;">
+          <div style="display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap;">
             <button class="btn" onclick="startSyncSession()">▶️ Tạo & Khởi Động Đồng Bộ</button>
-            <button class="btn btn-secondary" onclick="triggerEmergencyStop()">⏸️ Tạm Dừng / Dừng</button>
+            <button class="btn btn-secondary" onclick="syncControl('sync.pause')">⏸️ Tạm Dừng</button>
+            <button class="btn btn-secondary" onclick="syncControl('sync.resume')">⏯️ Tiếp Tục</button>
+            <button class="btn btn-secondary" onclick="syncControl('sync.stop')">⏹️ Dừng Phiên</button>
           </div>
+          <div id="syncMessage" style="margin-top: 12px; font-size: 12px; color: var(--text-muted);">Cần chạy các profile (READY) trước khi bật đồng bộ.</div>
+          <table style="margin-top: 14px; width: 100%; font-size: 12px;">
+            <thead><tr><th>Seq</th><th>Loại</th><th>Follower</th><th>Trạng thái</th><th>Mã lỗi</th></tr></thead>
+            <tbody id="syncEvents"><tr><td colspan="5">Chưa có thao tác nào.</td></tr></tbody>
+          </table>
         </div>
       </div>
 
@@ -349,6 +453,181 @@
         <pre id="diagnosticsOutput" style="background: #0f172a; padding: 15px; border-radius: 8px; border: 1px solid var(--border); font-size: 12px; color: #38bdf8; overflow-x: auto;">Nhấn "Xuất Báo Cáo Chẩn Đoán" để tải dữ liệu...</pre>
       </div>
 
+      <!-- USER GUIDE & DOCUMENTATION VIEW -->
+      <div id="view-guide" style="display: none;">
+        <div class="view-header">
+          <div>
+            <div class="view-title">📖 Sổ Tay Hướng Dẫn Sử Dụng Chi Tiết</div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Tài liệu hướng dẫn vận hành chuẩn, quy trình đồng bộ Master-Follower và xử lý sự cố</div>
+          </div>
+        </div>
+
+        <!-- Banner Overview -->
+        <div style="background: linear-gradient(135deg, rgba(37,99,235,0.15) 0%, rgba(16,185,129,0.1) 100%); border: 1px solid #2563eb44; border-radius: 8px; padding: 16px 20px; margin-bottom: 20px;">
+          <h3 style="color: #60a5fa; font-size: 16px; margin-bottom: 6px;">⚡ MultiProfile Studio PC (Kiến Trúc Độc Lập & An Toàn Cao)</h3>
+          <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5;">
+            Hệ thống quản lý hàng loạt trình duyệt Chromium độc lập trên Windows. Mỗi profile là một môi trường sạch tuyệt đối (UserDataDir riêng, Cookie/Cache/LocalStorage cô lập). 
+            Đặc biệt, hệ thống sử dụng quy trình quản lý PID nghiêm ngặt: <strong>Không bao giờ tắt hay ảnh hưởng đến trình duyệt Chrome cá nhân của bạn</strong>.
+          </p>
+        </div>
+
+        <div class="guide-grid">
+          <!-- Card 1: Quy trình chuẩn -->
+          <div class="guide-card" style="grid-column: 1 / -1;">
+            <div class="guide-card-title">🚀 Quy Trình Vận Hành 4 Bước Chuẩn (Từ Khởi Tạo Đến Đồng Bộ)</div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-top: 10px;">
+              
+              <div style="background: #0f172a; padding: 14px; border-radius: 6px; border: 1px solid var(--border);">
+                <div style="font-weight: 700; color: #38bdf8; margin-bottom: 8px; font-size: 13px;">
+                  <span class="guide-step-num">1</span> Thêm Proxy (Tùy chọn)
+                </div>
+                <p>Vào tab <strong>Proxy Pool</strong>, dán danh sách proxy theo định dạng:</p>
+                <code style="display: block; background: #1e293b; padding: 6px; border-radius: 4px; font-size: 11px; margin: 6px 0; color: #a5f3fc;">ip:port:user:pass</code>
+                <p>Hoặc <code>scheme://user:pass@host:port</code>. Mật khẩu được mã hóa an toàn qua SecretStore của máy.</p>
+              </div>
+
+              <div style="background: #0f172a; padding: 14px; border-radius: 6px; border: 1px solid var(--border);">
+                <div style="font-weight: 700; color: #38bdf8; margin-bottom: 8px; font-size: 13px;">
+                  <span class="guide-step-num">2</span> Tạo & Bật Profile
+                </div>
+                <p>Vào tab <strong>Quản lý Profiles</strong> &gt; Nhấn <strong>"Tạo Profile Mới"</strong>.</p>
+                <ul style="padding-left: 16px; margin: 6px 0;">
+                  <li>Chọn <strong>Required</strong> nếu dùng proxy (chống rò rỉ IP thực 100%).</li>
+                  <li>Chọn <strong>Direct</strong> nếu dùng mạng máy tính trực tiếp.</li>
+                </ul>
+                <p>Nhấn <strong>"Chạy"</strong> hoặc chọn checkbox nhiều profile và bấm <strong>"Chạy mục đã chọn"</strong>.</p>
+              </div>
+
+              <div style="background: #0f172a; padding: 14px; border-radius: 6px; border: 1px solid var(--border);">
+                <div style="font-weight: 700; color: #38bdf8; margin-bottom: 8px; font-size: 13px;">
+                  <span class="guide-step-num">3</span> Bật Đồng Bộ Hành Động
+                </div>
+                <p><strong>Lưu ý:</strong> Đợi các profile chuyển sang nhãn <span class="pill pill-ready">READY</span>.</p>
+                <p>Vào tab <strong>Đồng Bộ (Sync Center)</strong>:</p>
+                <ul style="padding-left: 16px; margin: 6px 0;">
+                  <li>Chọn <strong>Master Profile</strong> (trình duyệt chỉ huy).</li>
+                  <li>Chọn các <strong>Follower Profiles</strong>.</li>
+                  <li>Chọn chế độ <strong>Smart DOM</strong>.</li>
+                </ul>
+                <p>Bấm <strong>"▶️ Tạo & Khởi Động Đồng Bộ"</strong>.</p>
+              </div>
+
+              <div style="background: #0f172a; padding: 14px; border-radius: 6px; border: 1px solid var(--border);">
+                <div style="font-weight: 700; color: #38bdf8; margin-bottom: 8px; font-size: 13px;">
+                  <span class="guide-step-num">4</span> Thao Tác & Điều Khiển
+                </div>
+                <p>Mở cửa sổ trình duyệt của <strong>Master</strong> và thực hiện thao tác:</p>
+                <ul style="padding-left: 16px; margin: 6px 0;">
+                  <li><strong>Click chuột:</strong> Tự động khớp theo Selector an toàn.</li>
+                  <li><strong>Gõ phím:</strong> Hỗ trợ tiếng Việt có dấu IME (Telex/VNI).</li>
+                  <li><strong>Cuộn trang:</strong> Tự động đồng bộ cuộn mượt.</li>
+                </ul>
+                <p>Theo dõi bảng nhật ký sự kiện trực tiếp ở bên dưới giao diện.</p>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Card 2: Chế độ Mạng Proxy -->
+          <div class="guide-card">
+            <div class="guide-card-title">🌐 Chế Độ Proxy & Nguyên Tắc Chống Leak IP</div>
+            <p>Hệ thống có 2 chế độ kết nối mạng cho từng profile:</p>
+            <ul>
+              <li><strong>Direct (Trực tiếp):</strong> Kết nối trực tiếp qua card mạng chính của máy tính.</li>
+              <li><strong>Required (Bắt buộc Proxy - Chống rò rỉ):</strong> Profile được gán 1 Proxy xác định. Mọi kết nối bắt buộc phải đi qua proxy này.</li>
+            </ul>
+            <div class="guide-alert warning">
+              <strong>🛡️ Cam kết Anti-Leak:</strong> Ở chế độ <em>Required</em>, nếu Proxy chết hoặc xác thực thất bại, trình duyệt sẽ bị ngắt kết nối hoàn toàn, <strong>tuyệt đối không bao giờ âm thầm chuyển về mạng Direct</strong> để bảo vệ danh tính tài khoản.
+            </div>
+          </div>
+
+          <!-- Card 3: Cơ chế bảo vệ trong đồng bộ -->
+          <div class="guide-card">
+            <div class="guide-card-title">🔒 Bảo Vệ Trường Nhạy Cảm & Chống Click Nhầm</div>
+            <p>MultiProfile Studio PC được thiết kế với cơ chế bảo mật cấp hệ thống:</p>
+            <ul>
+              <li><strong>Trường Mật khẩu & OTP:</strong> Mọi ô nhập <code>type="password"</code> hoặc mã OTP xác thực 2 bước sẽ <strong>tự động bị bỏ qua</strong>, không thu thập và không gửi sang các Follower.</li>
+              <li><strong>Chống Click Nhầm (Ambiguous Detection):</strong> Khi bạn click vào một nút trên trang mà bộ phân giải thấy có 2 nút trùng nhau (không phân biệt được selector), hệ thống sẽ từ chối thực thi (báo trạng thái <code>BLOCKED</code> với mã lỗi <code>TARGET_AMBIGUOUS</code>) để đảm bảo không click sai mục.</li>
+            </ul>
+            <div class="guide-alert">
+              <strong>💡 Khuyên dùng Smart DOM:</strong> Chế độ Smart DOM nhận diện thẻ thông minh dựa trên <code>data-testid</code>, <code>id</code>, <code>role</code> và <code>class</code>, hoạt động chuẩn xác ngay cả khi kích thước cửa sổ các máy khác nhau.
+            </div>
+          </div>
+
+          <!-- Card 4: Phím tắt & Dừng khẩn cấp -->
+          <div class="guide-card">
+            <div class="guide-card-title">🛑 Dừng Khẩn Cấp (Emergency Stop)</div>
+            <p>Khi phát hiện Master thao tác nhầm hoặc muốn lập tức đóng băng toàn bộ hệ thống:</p>
+            <div style="background: #0f172a; padding: 12px; border-radius: 6px; border: 1px solid var(--border); margin: 10px 0; text-align: center;">
+              <span style="font-size: 13px; color: var(--text-muted); display: block; margin-bottom: 6px;">Phím tắt toàn cục (Global Hotkey):</span>
+              <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>S</kbd>
+            </div>
+            <ul>
+              <li><strong>Phản ứng cực nhanh:</strong> Khóa input và chặn truyền tin dưới <strong>250ms</strong>.</li>
+              <li><strong>Hoạt động toàn cục:</strong> Có hiệu lực ngay cả khi bạn đang ở cửa sổ Chromium, màn hình game hay ứng dụng khác mà không cần chuyển về cửa sổ app.</li>
+              <li><strong>Xóa sạch hàng đợi:</strong> Toàn bộ các thao tác đang chờ gửi sang Follower sẽ được hủy an toàn.</li>
+            </ul>
+          </div>
+
+          <!-- Card 5: Câu hỏi thường gặp -->
+          <div class="guide-card">
+            <div class="guide-card-title">❓ Câu Hỏi Thường Gặp & Cách Khắc Phục (FAQ)</div>
+            <ul>
+              <li>
+                <strong>Hỏi:</strong> <em>Bấm "Tạo & Khởi Động Đồng Bộ" báo lỗi UNREACHABLE?</em><br/>
+                <strong>Đáp:</strong> Do Master hoặc Follower chưa được bật. Bạn hãy quay lại tab <strong>Quản lý Profiles</strong>, bấm <strong>"Chạy"</strong> để các profile mở lên và trạng thái chuyển sang <span class="pill pill-ready">READY</span> rồi mới bật đồng bộ.
+              </li>
+              <li>
+                <strong>Hỏi:</strong> <em>Thao tác click ở Master nhưng Follower không thấy phản hồi?</em><br/>
+                <strong>Đáp:</strong> Đảm bảo phiên đồng bộ đang ở trạng thái <code>RUNNING</code> (chấm xanh lá). Nếu đang <code>PAUSED</code> (chấm vàng), nhấn nút <strong>"⏯️ Tiếp Tục"</strong>.
+              </li>
+              <li>
+                <strong>Hỏi:</strong> <em>Khi tắt app, các cửa sổ Chromium có tự tắt không?</em><br/>
+                <strong>Đáp:</strong> Có. Hệ thống tự động dọn dẹp và dừng sạch các worker trình duyệt khi đóng MultiProfile Studio. Khi mở app lại, cơ chế Reconcile Orphans sẽ kiểm tra dọn sạch mọi tiến trình mồ côi nếu máy từng bị mất điện hay crash đột ngột.
+              </li>
+            </ul>
+          </div>
+
+        </div>
+
+        <!-- System Architecture Notes -->
+        <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 18px 20px;">
+          <h4 style="font-size: 14px; font-weight: 700; margin-bottom: 8px; color: #cbd5e1;">📌 Bảng Tóm Tắt Phím Tắt & Thao Tác Nhanh</h4>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 250px;">Phím tắt / Thao tác</th>
+                <th>Phạm vi</th>
+                <th>Chức năng</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>S</kbd></td>
+                <td>Toàn hệ điều hành (Global)</td>
+                <td>Dừng khẩn cấp mọi phiên đồng bộ ngay tức thì (&lt; 250ms).</td>
+              </tr>
+              <tr>
+                <td><kbd>Tích chọn ô đầu bảng Profiles</kbd></td>
+                <td>Tab Quản lý Profiles</td>
+                <td>Chọn / Bỏ chọn tất cả profile trên màn hình để khởi chạy hoặc dừng hàng loạt.</td>
+              </tr>
+              <tr>
+                <td><kbd>⏸️ Tạm Dừng / ⏯️ Tiếp Tục</kbd></td>
+                <td>Tab Sync Center</td>
+                <td>Đóng băng tạm thời việc phát lại sự kiện sang Follower mà không cần tắt trình duyệt.</td>
+              </tr>
+              <tr>
+                <td><kbd>📤 Xuất Báo Cáo Chẩn Đoán</kbd></td>
+                <td>Tab Chẩn Đoán & Logs</td>
+                <td>Xuất dữ liệu kiểm tra hệ thống và audit log (đã tự động che kín thông tin bảo mật/mật khẩu).</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+
     </div>
   </div>
 
@@ -374,6 +653,11 @@
       <div class="form-group" id="newProfProxyGroup" style="display: none;">
         <label>Proxy (bắt buộc khi chọn Required):</label>
         <select id="newProfProxyId" class="form-control"></select>
+      </div>
+      <div class="form-group">
+        <label>Màu nhãn (để phân biệt cửa sổ Chrome):</label>
+        <div id="newProfColorPicker" style="display: flex; gap: 8px; flex-wrap: wrap;"></div>
+        <input type="hidden" id="newProfColor" value="" />
       </div>
       <div class="form-group">
         <label>Start URL:</label>
@@ -441,13 +725,18 @@
           tr.innerHTML = `
             <td><input type="checkbox" class="profile-check" data-id="${esc(p.id)}" /></td>
             <td style="font-family: monospace; font-size: 11px;">${esc(p.id.substring(0, 8))}...</td>
-            <td><strong>${esc(p.name)}</strong></td>
+            <td><strong>${colorDot(p.preset && p.preset.color, 12)}${esc(p.name)}</strong></td>
             <td>${p.group_name ? esc(p.group_name) : '<em style="color:#64748b;">(None)</em>'}</td>
             <td><span class="pill pill-${esc(p.proxy_mode)}">${esc(String(p.proxy_mode).toUpperCase())}</span></td>
             <td style="font-size: 12px; color: #94a3b8;">${esc(p.start_url)}</td>
             <td style="color: ${stateColor}; font-size: 12px;">${esc(state)}${errTxt}</td>
             <td>v${esc(p.config_revision)}</td>
             <td>
+              <select class="form-control" style="display:inline-block;width:auto;padding:3px 4px;font-size:11px;" title="Đổi màu nhãn" onchange="changeProfileColor('${esc(p.id)}', this.value)">
+                <option value="">🎨</option>
+                ${PROFILE_COLORS.map(c => `<option value="${c.hex}" ${p.preset && p.preset.color === c.hex ? 'selected' : ''}>${c.emoji} ${c.label}</option>`).join('')}
+              </select>
+              <button class="btn" style="padding: 4px 8px; font-size: 11px;" ${state === 'READY' ? '' : 'disabled'} title="Đưa cửa sổ Chrome của profile này lên trước" onclick="focusProfile('${esc(p.id)}')">🎯 Chọn</button>
               <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 11px;" ${running ? 'disabled' : ''} onclick="startProfile('${esc(p.id)}')">Chạy</button>
               <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 11px;" ${state === 'STOPPED' ? 'disabled' : ''} onclick="stopProfile('${esc(p.id)}')">Dừng</button>
               <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="duplicateProfile('${esc(p.id)}')">Nhân bản</button>
@@ -478,6 +767,21 @@
       showProfilesMessage(res.ok && res.data && !res.data.ok ? describeItems([res.data]) : (res.ok ? [] : [res.error ? res.error.code + ': ' + res.error.message : 'Lỗi không xác định']));
       loadProfiles();
     }
+    async function changeProfileColor(id, hex) {
+      if (!hex) return;
+      const p = profilesList.find(x => x.id === id);
+      if (!p) return;
+      const res = await callIpc('profile.update', { id, color: hex }, p.config_revision);
+      showProfilesMessage(res.ok ? ['Đã đổi màu. Màu mới áp dụng cho cửa sổ Chrome sau khi Dừng rồi Chạy lại profile.'] : [res.error ? res.error.code + ': ' + res.error.message : 'Lỗi không xác định']);
+      loadProfiles();
+    }
+    async function focusProfile(id) {
+      const res = await callIpc('profile.focus', { id });
+      const p = profilesList.find(x => x.id === id);
+      const label = p ? p.name : id.substring(0, 8);
+      if (res.ok && res.data && res.data.ok) showProfilesMessage(['Đã đưa cửa sổ "' + label + '" lên trước. Tiêu đề tab Chrome có dạng [' + label + '] ...']);
+      else showProfilesMessage([res.ok && res.data ? describeItems([res.data]).join('') : (res.error ? res.error.code + ': ' + res.error.message : 'Lỗi không xác định')]);
+    }
     async function stopProfile(id) {
       const res = await callIpc('profile.stop', { id });
       showProfilesMessage(res.ok && res.data && !res.data.ok ? describeItems([res.data]) : (res.ok ? [] : [res.error ? res.error.code + ': ' + res.error.message : 'Lỗi không xác định']));
@@ -499,7 +803,41 @@
     }
 
     // Create Profile
+    const PROFILE_COLORS = [
+      { hex: '#ef4444', emoji: '🔴', label: 'Đỏ' },
+      { hex: '#f97316', emoji: '🟠', label: 'Cam' },
+      { hex: '#eab308', emoji: '🟡', label: 'Vàng' },
+      { hex: '#22c55e', emoji: '🟢', label: 'Xanh lá' },
+      { hex: '#3b82f6', emoji: '🔵', label: 'Xanh dương' },
+      { hex: '#a855f7', emoji: '🟣', label: 'Tím' },
+      { hex: '#92400e', emoji: '🟤', label: 'Nâu' },
+      { hex: '#e5e7eb', emoji: '⚪', label: 'Trắng' }
+    ];
+    function colorDot(hex, size) {
+      const s = size || 12;
+      if (!hex) return '';
+      return '<span title="' + esc(hex) + '" style="display:inline-block;width:' + s + 'px;height:' + s + 'px;border-radius:50%;background:' + esc(hex) + ';border:1px solid rgba(255,255,255,0.4);vertical-align:middle;margin-right:6px;"></span>';
+    }
+    function renderColorPicker(containerId, inputId, selectedHex, onPick) {
+      const box = document.getElementById(containerId);
+      box.innerHTML = '';
+      PROFILE_COLORS.forEach(c => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'color-swatch';
+        b.dataset.hex = c.hex;
+        b.title = c.label;
+        b.style.cssText = 'width:26px;height:26px;border-radius:50%;cursor:pointer;background:' + c.hex + ';border:' + (c.hex === selectedHex ? '3px solid #fff' : '2px solid transparent') + ';';
+        b.addEventListener('click', () => {
+          if (inputId) document.getElementById(inputId).value = c.hex;
+          renderColorPicker(containerId, inputId, c.hex, onPick);
+          if (onPick) onPick(c.hex);
+        });
+        box.appendChild(b);
+      });
+    }
     async function openNewProfileModal() {
+      renderColorPicker('newProfColorPicker', 'newProfColor', document.getElementById('newProfColor').value);
       const sel = document.getElementById('newProfProxyId');
       sel.innerHTML = '';
       const res = await callIpc('proxy.list');
@@ -528,14 +866,17 @@
       if (!name) return alert('Vui lòng nhập tên Profile!');
       if (proxyMode === 'required' && !proxyId) return alert('Chế độ Required cần chọn một proxy. Hãy nhập proxy ở tab Proxy Pool trước.');
 
+      const color = document.getElementById('newProfColor').value;
       const res = await callIpc('profile.create', {
         name: name,
         group_name: group,
         proxy_mode: proxyMode,
         proxy_id: proxyMode === 'required' ? proxyId : undefined,
+        preset: color ? { viewport: { width: 1280, height: 720 }, color: color } : undefined,
         start_url: startUrl || 'https://google.com'
       });
       if (res.ok) {
+        document.getElementById('newProfColor').value = '';
         closeNewProfileModal();
         loadProfiles();
       } else {
@@ -595,36 +936,176 @@
     }
 
     // Sync Center
+    let syncProfilesCache = [];
+
     async function populateSyncSelectors() {
       const res = await callIpc('profile.list');
       const masterSelect = document.getElementById('syncMasterSelect');
-      const followerSelect = document.getElementById('syncFollowerSelect');
+      const previousMaster = masterSelect.value;
       masterSelect.innerHTML = '';
-      followerSelect.innerHTML = '';
-      if (res.ok && res.data.length > 0) {
-        res.data.forEach(p => {
-          masterSelect.innerHTML += `<option value="${p.id}">${p.name} (${p.id.substring(0, 8)})</option>`;
-          followerSelect.innerHTML += `<option value="${p.id}">${p.name} (${p.id.substring(0, 8)})</option>`;
-        });
+      if (!res.ok || !res.data || res.data.length === 0) {
+        syncProfilesCache = [];
+        masterSelect.innerHTML = '<option value="">(Chưa có profile nào - hãy tạo ở tab Quản lý Profiles)</option>';
+        document.getElementById('syncFollowerList').innerHTML = '<div style="color: var(--text-muted); font-size: 12px;">Chưa có profile nào.</div>';
+        updateFollowerCountBadge();
+        return;
+      }
+
+      syncProfilesCache = res.data;
+      syncProfilesCache.forEach(p => {
+        const state = p.runtime_state || 'STOPPED';
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = `${p.name} [${p.id.substring(0, 8)}] (${state})`;
+        masterSelect.appendChild(opt);
+      });
+
+      // Keep the user's previous Master if it still exists; otherwise prefer a READY profile.
+      const keep = syncProfilesCache.find(p => p.id === previousMaster);
+      const firstReady = syncProfilesCache.find(p => p.runtime_state === 'READY');
+      const defaultMaster = keep || firstReady || syncProfilesCache[0];
+      masterSelect.value = defaultMaster.id;
+
+      renderFollowersList();
+    }
+
+    function renderFollowersList() {
+      const masterId = document.getElementById('syncMasterSelect').value;
+      const listEl = document.getElementById('syncFollowerList');
+      listEl.innerHTML = '';
+
+      if (syncProfilesCache.length <= 1) {
+        listEl.innerHTML = '<div style="color: var(--warning); font-size: 12px;">⚠️ Cần ít nhất 2 profile để đồng bộ. Vui lòng tạo thêm profile ở tab "Quản lý Profiles".</div>';
+        updateFollowerCountBadge();
+        return;
+      }
+
+      syncProfilesCache.forEach(p => {
+        const isMaster = p.id === masterId;
+        const state = p.runtime_state || 'STOPPED';
+        const stateColor = state === 'READY' ? 'pill-ready' : 'pill-stopped';
+        const item = document.createElement('div');
+        item.style.cssText = 'display: flex; align-items: center; justify-content: space-between; padding: 4px 6px; border-radius: 4px; background: rgba(255,255,255,0.02);';
+
+        if (isMaster) {
+          item.innerHTML = `
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; opacity: 0.5; cursor: not-allowed; margin: 0;">
+              <input type="checkbox" disabled />
+              <span style="color: var(--text-muted);">${esc(p.name)} (${esc(p.id.substring(0, 8))})</span>
+            </label>
+            <span class="pill pill-required" style="font-size: 10px;">👑 Đang là Master</span>
+          `;
+        } else {
+          // Pre-check if ready or if only 2 profiles exist
+          const shouldCheck = (state === 'READY') || (syncProfilesCache.length === 2);
+          item.innerHTML = `
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; margin: 0; flex: 1;">
+              <input type="checkbox" class="sync-follower-cb" value="${esc(p.id)}" data-state="${state}" ${shouldCheck ? 'checked' : ''} onchange="updateFollowerCountBadge()" />
+              <span>${colorDot(p.preset && p.preset.color, 10)}${esc(p.name)} <span style="color: var(--text-muted); font-size: 11px;">(${esc(p.id.substring(0, 8))})</span></span>
+            </label>
+            <span class="pill ${stateColor}" style="font-size: 10px;">${esc(state)}</span>
+          `;
+        }
+        listEl.appendChild(item);
+      });
+
+      updateFollowerCountBadge();
+    }
+
+    function updateFollowerCountBadge() {
+      const checked = document.querySelectorAll('.sync-follower-cb:checked');
+      const badge = document.getElementById('syncFollowerCountBadge');
+      if (badge) {
+        badge.textContent = `Đã chọn: ${checked.length}`;
+        badge.className = checked.length > 0 ? 'pill pill-ready' : 'pill pill-stopped';
       }
     }
 
+    function selectAllFollowers(check) {
+      document.querySelectorAll('.sync-follower-cb').forEach(cb => {
+        cb.checked = check;
+      });
+      updateFollowerCountBadge();
+    }
+
+    function selectAllReadyFollowers() {
+      document.querySelectorAll('.sync-follower-cb').forEach(cb => {
+        cb.checked = (cb.getAttribute('data-state') === 'READY');
+      });
+      updateFollowerCountBadge();
+    }
+
+    let currentSyncSessionId = null;
+    let syncPollTimer = null;
+
     async function startSyncSession() {
       const masterId = document.getElementById('syncMasterSelect').value;
-      const selectedFollowers = Array.from(document.getElementById('syncFollowerSelect').selectedOptions).map(o => o.value);
+      const selectedFollowers = Array.from(document.querySelectorAll('.sync-follower-cb:checked'))
+        .map(cb => cb.value)
+        .filter(id => id !== masterId);
       const mode = document.getElementById('syncModeSelect').value;
 
-      if (!masterId) return alert('Vui lòng chọn Master profile!');
-      const res = await callIpc('sync.create', {
-        master_profile_id: masterId,
-        follower_ids: selectedFollowers,
-        mode: mode
-      });
-      if (res.ok) {
-        document.getElementById('statusDot').className = 'status-dot';
-        document.getElementById('syncStatusText').textContent = `Master ${masterId.substring(0,6)} → ${selectedFollowers.length} Followers • ${mode.toUpperCase()} • RUNNING`;
-        alert('Đã khởi tạo và bật phiên đồng bộ!');
+      if (!masterId) return showSyncMessage('Vui lòng chọn Master profile.', true);
+      if (selectedFollowers.length === 0) {
+        return showSyncMessage('Vui lòng tích chọn ít nhất 1 Follower trong danh sách bên dưới (khác Master).', true);
       }
+      if (mode !== 'dom') return showSyncMessage('Chế độ Coordinate chưa được hỗ trợ. Hãy dùng Smart DOM.', true);
+
+      // Profiles must be running before they can be synchronized.
+      const list = await callIpc('profile.list');
+      const states = new Map((list.data || []).map(p => [p.id, p.runtime_state]));
+      const notReady = [masterId, ...selectedFollowers].filter(id => states.get(id) !== 'READY');
+      if (notReady.length > 0) {
+        return showSyncMessage('Cần chạy (trạng thái READY) tất cả profile đã chọn trước khi bật đồng bộ: ' + notReady.map(id => id.substring(0, 8)).join(', '), true);
+      }
+
+      const created = await callIpc('sync.create', { master_profile_id: masterId, follower_ids: selectedFollowers, mode: mode });
+      if (!created.ok) return showSyncMessage('Tạo phiên thất bại: ' + created.error.code + ' - ' + created.error.message, true);
+      const armed = await callIpc('sync.arm', { session_id: created.data.id });
+      if (!armed.ok) return showSyncMessage('Bật đồng bộ thất bại: ' + armed.error.code + ' - ' + armed.error.message, true);
+
+      currentSyncSessionId = created.data.id;
+      showSyncMessage('Đang đồng bộ: thao tác trên Master sẽ được lặp lại trên ' + selectedFollowers.length + ' Follower.', false);
+      refreshSyncStatus();
+      if (syncPollTimer) clearInterval(syncPollTimer);
+      syncPollTimer = setInterval(refreshSyncStatus, 1500);
+    }
+
+    async function syncControl(command) {
+      if (!currentSyncSessionId) return showSyncMessage('Chưa có phiên đồng bộ nào đang chạy.', true);
+      const res = await callIpc(command, { session_id: currentSyncSessionId });
+      if (!res.ok) showSyncMessage(res.error.code + ' - ' + res.error.message, true);
+      if (command === 'sync.stop' && res.ok) {
+        currentSyncSessionId = null;
+        if (syncPollTimer) clearInterval(syncPollTimer);
+        syncPollTimer = null;
+        document.getElementById('statusDot').className = 'status-dot stopped';
+        document.getElementById('syncStatusText').textContent = 'MultiProfile Studio • STOPPED';
+        showSyncMessage('Đã dừng phiên đồng bộ.', false);
+        return;
+      }
+      refreshSyncStatus();
+    }
+
+    async function refreshSyncStatus() {
+      if (!currentSyncSessionId) return;
+      const res = await callIpc('sync.status', { session_id: currentSyncSessionId });
+      if (!res.ok) return;
+      const st = res.data;
+      const running = st.state === 'RUNNING';
+      document.getElementById('statusDot').className = running ? 'status-dot' : 'status-dot stopped';
+      document.getElementById('syncStatusText').textContent =
+        'Master ' + st.master_profile_id.substring(0, 6) + ' → ' + st.follower_ids.length + ' Followers • ' + st.state;
+      const rows = (st.recent_events || []).slice(-10).reverse().map(e =>
+        '<tr><td>' + esc(String(e.seq)) + '</td><td>' + esc(e.type) + '</td><td>' + esc(e.follower_id.substring(0, 8)) +
+        '</td><td>' + esc(e.state) + '</td><td>' + esc(e.error_code || '') + '</td></tr>').join('');
+      document.getElementById('syncEvents').innerHTML = rows || '<tr><td colspan="5">Chưa có thao tác nào.</td></tr>';
+    }
+
+    function showSyncMessage(text, isError) {
+      const el = document.getElementById('syncMessage');
+      el.textContent = text;
+      el.style.color = isError ? 'var(--danger)' : 'var(--text-muted)';
     }
 
     // Emergency Stop
@@ -632,7 +1113,8 @@
       const res = await callIpc('sync.emergencyStop', {});
       document.getElementById('statusDot').className = 'status-dot stopped';
       document.getElementById('syncStatusText').textContent = 'MultiProfile Studio • STOPPED';
-      alert('ĐÃ KÍCH HOẠT DỪNG KHẨN CẤP! Tất cả hàng đợi và thao tác đồng bộ đã được hủy an toàn.');
+      if (res.ok) showSyncMessage('Đã dừng khẩn cấp (chặn trong ' + Math.round(res.data.blocked_ms) + ' ms). Phiên ở trạng thái tạm dừng.', false);
+      else showSyncMessage('Dừng khẩn cấp lỗi: ' + res.error.code, true);
     }
 
     // Global hotkey is handled in main; here we only reflect the state in the UI.

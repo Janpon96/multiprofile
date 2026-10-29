@@ -7,7 +7,29 @@ export type ProxyScheme = 'http' | 'https' | 'socks5';
 export type ProxyAuthKind = 'none' | 'basic' | 'username_password';
 export type ProxyMode = 'required' | 'direct';
 
+/** Fixed palette used to tell profiles apart (UI swatch, window title emoji, in-page color bar). */
+export const PROFILE_COLORS = [
+  { hex: '#ef4444', emoji: '🔴', label: 'Đỏ' },
+  { hex: '#f97316', emoji: '🟠', label: 'Cam' },
+  { hex: '#eab308', emoji: '🟡', label: 'Vàng' },
+  { hex: '#22c55e', emoji: '🟢', label: 'Xanh lá' },
+  { hex: '#3b82f6', emoji: '🔵', label: 'Xanh dương' },
+  { hex: '#a855f7', emoji: '🟣', label: 'Tím' },
+  { hex: '#92400e', emoji: '🟤', label: 'Nâu' },
+  { hex: '#e5e7eb', emoji: '⚪', label: 'Trắng' }
+] as const;
+
+export function isProfileColor(value: unknown): value is (typeof PROFILE_COLORS)[number]['hex'] {
+  return typeof value === 'string' && PROFILE_COLORS.some((c) => c.hex === value);
+}
+
+export function profileColorEmoji(hex: string | undefined): string {
+  return PROFILE_COLORS.find((c) => c.hex === hex)?.emoji ?? '';
+}
+
 export interface BrowserPreset {
+  /** One of PROFILE_COLORS[].hex. */
+  color?: string;
   viewport: {
     width: number;
     height: number;

@@ -198,6 +198,21 @@ export class SyncRepository {
     return res.changes;
   }
 
+  /**
+   * Frees profiles held by sessions that are not live (DRAFT/STOPPED), so they can join a new session.
+   * Sessions in ARMING/RUNNING/PAUSED/STOPPING are left untouched.
+   */
+  public releaseIdleMembers(profileIds: string[]): number {
+    if (profileIds.length === 0) return 0;
+    const marks = profileIds.map(() => '?').join(',');
+    const res = this.db.prepare(`
+      UPDATE sync_members SET active = 0
+      WHERE active = 1 AND profile_id IN (${marks})
+        AND session_id IN (SELECT id FROM sync_sessions WHERE state IN ('DRAFT','STOPPED'))
+    `).run(...profileIds);
+    return res.changes;
+  }
+
   public setSessionState(sessionId: string, state: SyncSessionRecord['state'], epoch?: number): void {
     if (epoch === undefined) {
       this.db.prepare('UPDATE sync_sessions SET state = ? WHERE id = ?').run(state, sessionId);

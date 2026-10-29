@@ -63,6 +63,27 @@ export class ProfileRuntimeManager {
     return [...this.workers.keys()];
   }
 
+  /** Bring the profile's browser window to the foreground. */
+  public async focus(profileId: string): Promise<ProfileOpResult & { window_state?: string | null }> {
+    const worker = this.workers.get(profileId);
+    const state = this.profiles.getRuntime(profileId)?.state ?? 'STOPPED';
+    if (!worker) {
+      return { profile_id: profileId, ok: false, state, error_code: 'UNREACHABLE', message: 'Profile is not running' };
+    }
+    try {
+      const { windowState } = await worker.focusWindow();
+      return { profile_id: profileId, ok: true, state, window_state: windowState };
+    } catch (err: unknown) {
+      return {
+        profile_id: profileId,
+        ok: false,
+        state,
+        error_code: 'UNREACHABLE',
+        message: err instanceof Error ? err.message : String(err)
+      };
+    }
+  }
+
   private setState(profileId: string, state: Parameters<ProfileRepository['updateRuntime']>[1]['state'], extra: Record<string, unknown> = {}): void {
     this.profiles.updateRuntime(profileId, { state, ...extra });
   }

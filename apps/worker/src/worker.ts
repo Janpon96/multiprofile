@@ -6,7 +6,8 @@ import {
   CanonicalEnvelope,
   DeliveryState,
   VerificationState,
-  ERROR_CODES
+  ERROR_CODES,
+  profileColorEmoji
 } from '@multiprofile/contracts';
 import {
   launchProfileBrowserContext,
@@ -73,6 +74,42 @@ export interface CapturedMessage {
   payload: unknown;
   target: unknown;
   timestamp: number;
+}
+
+/**
+ * Init script that (1) keeps `<emoji> [name] ` at the start of document.title, even when the page changes it,
+ * and (2) draws a thin colored bar at the top of every page. The bar lives in a closed shadow root on <html>,
+ * ignores pointer events and is invisible to page selectors, so it cannot affect captured/replayed actions.
+ */
+export function buildTitleLabelScript(name: string, colorHex?: string): string {
+  const emoji = profileColorEmoji(colorHex);
+  const prefix = `${emoji ? emoji + ' ' : ''}[${name}] `;
+  return `(() => {
+  const PREFIX = ${JSON.stringify(prefix)};
+  const COLOR = ${JSON.stringify(colorHex ?? '')};
+  const apply = () => {
+    if (!document.title.startsWith(PREFIX)) document.title = PREFIX + document.title;
+  };
+  const addBar = () => {
+    if (!COLOR || document.documentElement.__mpsBar) return;
+    const host = document.createElement('div');
+    host.style.cssText = 'all:initial;position:fixed;top:0;left:0;right:0;height:5px;z-index:2147483647;pointer-events:none;';
+    const root = host.attachShadow({ mode: 'closed' });
+    const bar = document.createElement('div');
+    bar.style.cssText = 'width:100%;height:100%;background:' + COLOR + ';';
+    root.appendChild(bar);
+    document.documentElement.appendChild(host);
+    Object.defineProperty(document.documentElement, '__mpsBar', { value: true });
+  };
+  const watch = () => {
+    apply();
+    addBar();
+    const target = document.querySelector('title') || document.head;
+    if (target) new MutationObserver(apply).observe(target, { childList: true, characterData: true, subtree: true });
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', watch, { once: true });
+  else watch();
+})();`;
 }
 
 export class ProfileWorker {
@@ -156,6 +193,33 @@ export class ProfileWorker {
   public getActivePage(): Page | null {
     return this.activePage;
   }
+  /**
+   * Restore (if minimized) and raise this profile's browser window.
+   * Returns the window state reported by Chromium, or null when it cannot be read (e.g. headless).
+   */
+  public async focusWindow(): Promise<{ windowState: string | null }> {
+    if (!this.context || !this.activePage || this.isStopping) {
+      throw new Error('Worker page is not available');
+    }
+    const page = this.activePage;
+    let windowState: string | null = null;
+    try {
+      const cdp = await this.context.newCDPSession(page);
+      try {
+        const { windowId } = await cdp.send('Browser.getWindowForTarget');
+        await cdp.send('Browser.setWindowBounds', { windowId, bounds: { windowState: 'normal' } });
+        const { bounds } = await cdp.send('Browser.getWindowBounds', { windowId });
+        windowState = bounds.windowState ?? null;
+      } finally {
+        await cdp.detach().catch(() => {});
+      }
+    } catch {
+      /* window management is best effort; bringToFront below still applies */
+    }
+    await page.bringToFront();
+    return { windowState };
+  }
+
   private activePage: Page | null = null;
   private relay: LocalProxyRelay | null = null;
   private config: WorkerStartConfig | null = null;
@@ -184,6 +248,8 @@ export class ProfileWorker {
     });
 
     if (this.context) {
+      // Prefix every page title with the profile name so windows are distinguishable in the taskbar / Alt+Tab.
+      await this.context.addInitScript(buildTitleLabelScript(config.profile.name, config.profile.preset?.color)).catch(() => {});
       this.browserProcess = findBrowserProcess(getProfileDataDir(config.profile.id, config.baseAppDataDir).userDataDir);
       const pages = this.context.pages();
       this.activePage = pages.length > 0 ? pages[0] : await this.context.newPage();

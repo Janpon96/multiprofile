@@ -14,6 +14,7 @@ export const ALLOWED_IPC_COMMANDS = new Set([
   'profile.list',
   'profile.start',
   'profile.stop',
+  'profile.focus',
   'profile.startMany',
   'profile.stopMany',
   'proxy.list',

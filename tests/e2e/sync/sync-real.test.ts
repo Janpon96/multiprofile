@@ -176,4 +176,29 @@ describe('Real sync on Chromium', () => {
     const state = (controller.syncEngine.status(sessionId) as any).state;
     expect(['PAUSED', 'STOPPED', 'STOPPING']).toContain(state);
   }, 60_000);
+
+  it('rejects a session without Followers or with the Master as its own Follower', async () => {
+    const none = await ipc(controller, 'sync.create', { master_profile_id: masterId, follower_ids: [], mode: 'dom' });
+    expect(none.ok).toBe(false);
+    const self = await ipc(controller, 'sync.create', { master_profile_id: masterId, follower_ids: [masterId], mode: 'dom' });
+    expect(self.ok).toBe(false);
+  });
+
+  it('can create and arm a new session with the same profiles after the previous one was stopped', async () => {
+    const stopped = await ipc(controller, 'sync.stop', { session_id: sessionId });
+    expect(stopped.ok, JSON.stringify(stopped.error)).toBe(true);
+
+    const created = await ipc(controller, 'sync.create', { master_profile_id: masterId, follower_ids: followerIds, mode: 'dom' });
+    expect(created.ok, JSON.stringify(created.error)).toBe(true);
+    const newId = (created.data as any).id;
+    const armed = await ipc(controller, 'sync.arm', { session_id: newId });
+    expect(armed.ok, JSON.stringify(armed.error)).toBe(true);
+
+    // control: the new session really replays the Master's click
+    const before = await counter(followerIds[0]);
+    await page(masterId).locator('[data-testid=btn-submit]').click();
+    await expect.poll(() => counter(followerIds[0]), { timeout: 10_000 }).toBe(before + 1);
+    await expect.poll(() => counter(followerIds[1]), { timeout: 10_000 }).toBe(before + 1);
+    await ipc(controller, 'sync.stop', { session_id: newId });
+  }, 60_000);
 });

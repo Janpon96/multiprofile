@@ -191,7 +191,7 @@ export class ProfileRepository {
     ).run(now, now, id);
   }
 
-  public duplicateConfigOnly(sourceId: string, newId: string, newName?: string): ProfileRecord {
+  public duplicateConfigOnly(sourceId: string, newId: string, newName?: string, presetOverrides?: Partial<BrowserPreset>): ProfileRecord {
     const source = this.getById(sourceId);
     if (!source) {
       throw new Error(`Source profile '${sourceId}' not found`);
@@ -202,7 +202,7 @@ export class ProfileRepository {
       group_name: source.group_name,
       proxy_mode: source.proxy_mode,
       proxy_id: source.proxy_id,
-      preset: JSON.parse(JSON.stringify(source.preset)),
+      preset: { ...JSON.parse(JSON.stringify(source.preset)), ...(presetOverrides ?? {}) },
       start_url: source.start_url
     });
   }
