@@ -1,0 +1,142 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Profile metadata export v1",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 120
+      },
+      "group": {
+        "type": "string",
+        "maxLength": 120
+      },
+      "proxy_mode": {
+        "type": "string",
+        "enum": [
+          "required",
+          "direct"
+        ]
+      },
+      "proxy_id": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "uuid"
+      },
+      "config_revision": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "preset": {
+        "type": "object",
+        "properties": {
+          "viewport": {
+            "type": "object",
+            "properties": {
+              "width": {
+                "type": "integer",
+                "minimum": 320,
+                "maximum": 7680
+              },
+              "height": {
+                "type": "integer",
+                "minimum": 240,
+                "maximum": 4320
+              }
+            },
+            "required": [
+              "width",
+              "height"
+            ],
+            "additionalProperties": false
+          },
+          "locale": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 35
+          },
+          "timezone_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "color_scheme": {
+            "type": "string",
+            "enum": [
+              "light",
+              "dark",
+              "no-preference"
+            ]
+          },
+          "user_agent_mode": {
+            "type": "string",
+            "enum": [
+              "engine_default"
+            ]
+          }
+        },
+        "required": [
+          "viewport",
+          "locale",
+          "timezone_id",
+          "color_scheme",
+          "user_agent_mode"
+        ],
+        "additionalProperties": false
+      },
+      "start_url": {
+        "type": "string",
+        "pattern": "^https?://",
+        "maxLength": 2048
+      }
+    },
+    "required": [
+      "id",
+      "name",
+      "group",
+      "proxy_mode",
+      "proxy_id",
+      "config_revision",
+      "preset",
+      "start_url"
+    ],
+    "additionalProperties": false,
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "proxy_mode": {
+              "const": "required"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "proxy_id": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "else": {
+          "properties": {
+            "proxy_id": {
+              "type": "null"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "minItems": 1,
+  "maxItems": 5000
+}

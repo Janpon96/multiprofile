@@ -1,0 +1,26 @@
+{
+  "status": "REQUIRES_G0_VALIDATION",
+  "product": "MultiProfile Studio",
+  "target_os": "Windows 11 x64",
+  "app_version": null,
+  "source_commit": null,
+  "electron_version": null,
+  "node_version_bundled": null,
+  "playwright_version": null,
+  "chromium_revision": null,
+  "chromium_version": null,
+  "browser_binary_sha256": null,
+  "proxy_chain_version": null,
+  "sqlite_binding_version": null,
+  "native_helper_version": null,
+  "native_helper_sha256": null,
+  "db_schema_version": 1,
+  "cdp_capabilities_verified": [],
+  "network_preset_flags_verified": [],
+  "capture_world_verified": false,
+  "job_membership_verified": false,
+  "ime_inputs_verified": [],
+  "notes": [
+    "Template only. Do not pass null versions to a runtime downloader. Fill from actual G0 tests."
+  ]
+}

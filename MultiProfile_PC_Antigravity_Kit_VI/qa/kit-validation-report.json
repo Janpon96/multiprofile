@@ -1,0 +1,142 @@
+{
+  "status": "PASS",
+  "scope": "Documentation/contract consistency only; subset schema checker, not a full Draft-07 certification",
+  "checked_at_utc": "2026-10-29T07:43:41.613478+00:00",
+  "checks": [
+    {
+      "check": "JSON syntax for every JSON artifact",
+      "status": "PASS"
+    },
+    {
+      "check": "Schema keyword coverage in the included subset checker",
+      "status": "PASS"
+    },
+    {
+      "check": "Positive contract fixture: profiles",
+      "status": "PASS"
+    },
+    {
+      "check": "Positive contract fixture: proxies",
+      "status": "PASS"
+    },
+    {
+      "check": "Positive contract fixture: sync-session",
+      "status": "PASS"
+    },
+    {
+      "check": "Positive contract fixture: event-click",
+      "status": "PASS"
+    },
+    {
+      "check": "Positive contract fixture: event-text",
+      "status": "PASS"
+    },
+    {
+      "check": "Negative contract fixture rejected: required proxy missing",
+      "status": "PASS"
+    },
+    {
+      "check": "Negative contract fixture rejected: direct with proxy assignment",
+      "status": "PASS"
+    },
+    {
+      "check": "Negative contract fixture rejected: arbitrary data dir",
+      "status": "PASS"
+    },
+    {
+      "check": "Negative contract fixture rejected: plaintext proxy password",
+      "status": "PASS"
+    },
+    {
+      "check": "Negative contract fixture rejected: invalid proxy port",
+      "status": "PASS"
+    },
+    {
+      "check": "Negative contract fixture rejected: SOCKS HTTP auth kind",
+      "status": "PASS"
+    },
+    {
+      "check": "Negative contract fixture rejected: duplicate followers",
+      "status": "PASS"
+    },
+    {
+      "check": "Negative contract fixture rejected: invalid sequence",
+      "status": "PASS"
+    },
+    {
+      "check": "Negative contract fixture rejected: arbitrary eval payload",
+      "status": "PASS"
+    },
+    {
+      "check": "Negative contract fixture rejected: oversized text",
+      "status": "PASS"
+    },
+    {
+      "check": "Negative contract fixture rejected: out of bounds coordinate",
+      "status": "PASS"
+    },
+    {
+      "check": "Negative contract fixture rejected: unsafe navigation scheme",
+      "status": "PASS"
+    },
+    {
+      "check": "Cross-file IDs, sample CSV mappings and Unicode offsets",
+      "status": "PASS"
+    },
+    {
+      "check": "SQLite migration and valid fixture inserts",
+      "status": "PASS"
+    },
+    {
+      "check": "SQLite constraint: required proxy cannot become null",
+      "status": "PASS"
+    },
+    {
+      "check": "SQLite constraint: referenced proxy cannot be deleted",
+      "status": "PASS"
+    },
+    {
+      "check": "SQLite constraint: invalid port",
+      "status": "PASS"
+    },
+    {
+      "check": "SQLite constraint: one active session per profile",
+      "status": "PASS"
+    },
+    {
+      "check": "SQLite constraint: one active master per session",
+      "status": "PASS"
+    },
+    {
+      "check": "SQLite constraint: delivery dedup key",
+      "status": "PASS"
+    },
+    {
+      "check": "SQLite constraint: sequence unique per follower",
+      "status": "PASS"
+    },
+    {
+      "check": "40 acceptance rows and FR-01…FR-18 coverage; application tests remain NOT_RUN",
+      "status": "PASS"
+    },
+    {
+      "check": "Markdown fence balance and 3 local links",
+      "status": "PASS"
+    },
+    {
+      "check": "Version and benchmark templates explicitly unmeasured",
+      "status": "PASS"
+    }
+  ],
+  "check_count": 31,
+  "schema_count": 4,
+  "positive_contract_samples": 5,
+  "negative_contract_samples": 12,
+  "acceptance_case_count": 40,
+  "application_tests_run": 0,
+  "browser_or_proxy_tests_run": 0,
+  "notes": [
+    "No desktop app, installer, proxy provider or Windows behavior was executed by this check.",
+    "Use a standards-compliant schema validator and real browser test suite during implementation."
+  ]
+}

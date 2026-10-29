@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  "epoch": 1,
+  "event_id": "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+  "seq": 2,
+  "source_profile_id": "11111111-1111-4111-8111-111111111111",
+  "logical_tab_id": "main",
+  "frame_path": [],
+  "route_key": "fixture.form",
+  "route_generation": 1,
+  "source_document_token": "master-document-demo-1",
+  "type": "text.patch",
+  "target": {
+    "kind": "dom",
+    "element_kind": "input",
+    "candidates": [
+      {
+        "strategy": "testId",
+        "value": "display-name"
+      }
+    ]
+  },
+  "payload": {
+    "baseline_version": 1,
+    "range_start": 0,
+    "range_end": 0,
+    "inserted_text": "Tiếng Việt 👩🏽‍💻",
+    "selection_after_start": 18,
+    "selection_after_end": 18
+  },
+  "created_at": "2026-10-29T03:00:00Z",
+  "ttl_ms": 5000,
+  "trace_id": "cccccccc-cccc-4ccc-8ccc-cccccccccccc"
+}

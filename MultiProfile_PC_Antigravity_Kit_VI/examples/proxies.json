@@ -1,0 +1,32 @@
+[
+  {
+    "id": "44444444-4444-4444-8444-444444444444",
+    "label": "Proxy demo 1",
+    "scheme": "http",
+    "host": "proxy-1.example",
+    "port": 8080,
+    "auth_kind": "basic",
+    "secret_ref": "secret:demo-http",
+    "config_revision": 1
+  },
+  {
+    "id": "55555555-5555-4555-8555-555555555555",
+    "label": "Proxy demo 2",
+    "scheme": "https",
+    "host": "proxy-2.example",
+    "port": 8443,
+    "auth_kind": "none",
+    "secret_ref": null,
+    "config_revision": 1
+  },
+  {
+    "id": "66666666-6666-4666-8666-666666666666",
+    "label": "Proxy demo 3",
+    "scheme": "socks5",
+    "host": "proxy-3.example",
+    "port": 1080,
+    "auth_kind": "username_password",
+    "secret_ref": "secret:demo-socks",
+    "config_revision": 1
+  }
+]

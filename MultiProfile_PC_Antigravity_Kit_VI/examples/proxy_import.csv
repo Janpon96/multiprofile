@@ -1,0 +1,4 @@
+proxy_id,label,scheme,host,port,username,password
+44444444-4444-4444-8444-444444444444,Demo HTTP,http,proxy-1.example,8080,demo_user,NOT_A_REAL_PASSWORD
+55555555-5555-4555-8555-555555555555,Demo HTTPS,https,proxy-2.example,8443,,
+66666666-6666-4666-8666-666666666666,Demo SOCKS5,socks5,proxy-3.example,1080,demo_user,NOT_A_REAL_PASSWORD

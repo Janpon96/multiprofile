@@ -1,0 +1,43 @@
+{
+  "status": "NOT_RUN",
+  "recorded_at": null,
+  "source_commit": null,
+  "build_id": null,
+  "engine_revision": null,
+  "hardware": {
+    "os": null,
+    "cpu": null,
+    "logical_cores": null,
+    "ram_gb": null,
+    "gpu": null,
+    "storage": null,
+    "display_dpi": null
+  },
+  "scenario": {
+    "profiles": 10,
+    "tabs_per_profile": 1,
+    "duration_minutes": 60,
+    "site_fixture_revision": null,
+    "proxy_fixture_revision": null,
+    "sync_mode": "dom",
+    "fixed_stagger_ms": 0,
+    "master_count": 1
+  },
+  "metrics": {
+    "dispatch_p95_ms": null,
+    "dispatch_p99_ms": null,
+    "e2e_p95_ms": null,
+    "queue_age_p95_ms": null,
+    "ram_peak_mb": null,
+    "cpu_p95_percent": null,
+    "app_crashes": null,
+    "wrong_targets": null,
+    "duplicate_effects": null,
+    "unknown_actions": null,
+    "stop_dispatch_p95_ms": null
+  },
+  "evidence_paths": [],
+  "limitations": [
+    "No benchmark has been performed by this documentation kit."
+  ]
+}
