@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>MultiProfile Test Fixture - Form & Controls</title>
+  <style>
+    body { font-family: sans-serif; margin: 20px; }
+    .box { margin-bottom: 15px; }
+    label { display: block; margin-bottom: 5px; font-weight: bold; }
+    input[type="text"], textarea { width: 300px; padding: 6px; }
+    canvas { border: 1px solid #ccc; background: #fafafa; }
+  </style>
+</head>
+<body>
+  <h1>MultiProfile Test Suite - Primary Fixture</h1>
+  
+  <div class="box">
+    <label for="txtName">Họ và tên (Text input):</label>
+    <input type="text" id="txtName" data-testid="input-name" placeholder="Nhập tiếng Việt..." />
+  </div>
+
+  <div class="box">
+    <label for="txtNotes">Ghi chú (Textarea):</label>
+    <textarea id="txtNotes" data-testid="input-notes" rows="3"></textarea>
+  </div>
+
+  <div class="box">
+    <label for="txtPassword">Mật khẩu (Excluded field - Never sync/log):</label>
+    <input type="password" id="txtPassword" data-testid="input-password" />
+  </div>
+
+  <div class="box">
+    <label for="txtOtp">Mã OTP (Excluded field):</label>
+    <input type="text" id="txtOtp" autocomplete="one-time-code" data-testid="input-otp" />
+  </div>
+
+  <div class="box">
+    <button id="btnSubmit" data-testid="btn-submit" type="button">Xác nhận gửi</button>
+    <button class="dup-btn" type="button">Nút trùng nhãn</button>
+    <button class="dup-btn" type="button">Nút trùng nhãn</button>
+    <span id="clickCounter" data-testid="click-counter">0</span>
+  </div>
+
+  <div class="box">
+    <h3>Canvas Tọa độ (Coordinate Mode Test)</h3>
+    <canvas id="testCanvas" width="400" height="200" data-testid="canvas-drawing"></canvas>
+  </div>
+
+  <script>
+    var count = 0;
+    var btn = document.getElementById('btnSubmit');
+    var counterEl = document.getElementById('clickCounter');
+    btn.addEventListener('click', function() {
+      count++;
+      counterEl.textContent = count.toString();
+    });
+
+    var canvas = document.getElementById('testCanvas');
+    var ctx = canvas.getContext('2d');
+    canvas.addEventListener('mousedown', function(e) {
+      var rect = canvas.getBoundingClientRect();
+      var x = e.clientX - rect.left;
+      var y = e.clientY - rect.top;
+      ctx.fillStyle = '#007acc';
+      ctx.fillRect(x - 3, y - 3, 6, 6);
+    });
+  </script>
+</body>
+</html>

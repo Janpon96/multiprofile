@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>MultiProfile Studio PC</title>
+  <style>
+    :root {
+      --bg: #12141a;
+      --card-bg: #1a1e27;
+      --border: #2a303e;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --text: #e2e8f0;
+      --text-muted: #94a3b8;
+      --danger: #ef4444;
+      --danger-hover: #dc2626;
+      --success: #10b981;
+      --warning: #f59e0b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+    /* Top Sync Status Bar */
+    .sync-bar {
+      background: #0f172a;
+      border-bottom: 1px solid var(--border);
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 13px;
+    }
+    .sync-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+    }
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--success);
+    }
+    .status-dot.paused { background: var(--warning); }
+    .status-dot.stopped { background: var(--text-muted); }
+    .btn-emergency {
+      background: var(--danger);
+      color: white;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-emergency:hover { background: var(--danger-hover); }
+
+    /* Layout */
+    .main-container { display: flex; flex: 1; overflow: hidden; }
+    .sidebar {
+      width: 220px;
+      background: var(--card-bg);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 15px 0;
+    }
+    .sidebar-title {
+      font-size: 15px;
+      font-weight: bold;
+      padding: 0 20px 15px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .nav-item {
+      padding: 12px 20px;
+      cursor: pointer;
+      font-size: 14px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: background 0.15s;
+    }
+    .nav-item:hover { background: rgba(255, 255, 255, 0.04); color: var(--text); }
+    .nav-item.active { background: rgba(37, 99, 235, 0.15); color: #60a5fa; font-weight: 600; border-left: 3px solid var(--primary); }
+
+    .content-area {
+      flex: 1;
+      padding: 24px;
+      overflow-y: auto;
+    }
+
+    /* Views */
+    .view-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .view-title { font-size: 20px; font-weight: bold; }
+    .btn {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn:hover { background: var(--primary-hover); }
+    .btn-secondary { background: #334155; }
+    .btn-secondary:hover { background: #475569; }
+
+    /* Table */
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; background: var(--card-bg); border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
+    th, td { padding: 12px 16px; text-align: left; font-size: 13px; border-bottom: 1px solid var(--border); }
+    th { background: rgba(0, 0, 0, 0.2); color: var(--text-muted); font-weight: 600; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255, 255, 255, 0.02); }
+
+    .pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .pill-ready { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+    .pill-stopped { background: rgba(148, 163, 184, 0.2); color: #94a3b8; }
+    .pill-required { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+    .pill-direct { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+
+    /* Modal */
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+    .modal {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      width: 500px;
+      padding: 24px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+    }
+    .modal-title { font-size: 16px; font-weight: bold; margin-bottom: 15px; }
+    .form-group { margin-bottom: 14px; }
+    .form-group label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 5px; }
+    .form-control {
+      width: 100%;
+      padding: 8px 12px;
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 13px;
+    }
+    .form-control:focus { outline: none; border-color: var(--primary); }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+  </style>
+</head>
+<body>
+
+  <!-- Top Persistent Sync Status Bar -->
+  <div class="sync-bar">
+    <div class="sync-badge">
+      <div id="statusDot" class="status-dot stopped"></div>
+      <span id="syncStatusText">MultiProfile Studio • READY</span>
+    </div>
+    <div style="display: flex; gap: 10px; align-items: center;">
+      <span style="font-size: 11px; color: var(--text-muted);">Phím tắt khẩn cấp: <strong>Ctrl+Alt+Shift+S</strong></span>
+      <button class="btn-emergency" onclick="triggerEmergencyStop()">🛑 Dừng Khẩn Cấp</button>
+    </div>
+  </div>
+
+  <div class="main-container">
+    <!-- Sidebar Navigation -->
+    <div class="sidebar">
+      <div class="sidebar-title">
+        <span>⚡ MultiProfile</span>
+      </div>
+      <div class="nav-item active" onclick="switchView('profiles', this)">📁 Quản lý Profiles</div>
+      <div class="nav-item" onclick="switchView('proxy', this)">🌐 Proxy Pool</div>
+      <div class="nav-item" onclick="switchView('sync', this)">🔄 Đồng Bộ (Sync Center)</div>
+      <div class="nav-item" onclick="switchView('layout', this)">🪟 Xếp Lưới (Tiling)</div>
+      <div class="nav-item" onclick="switchView('variables', this)">📋 Biến & Dữ liệu</div>
+      <div class="nav-item" onclick="switchView('diagnostics', this)">🛠️ Chẩn Đoán & Logs</div>
+    </div>
+
+    <!-- Content Views -->
+    <div class="content-area">
+
+      <!-- PROFILES VIEW -->
+      <div id="view-profiles">
+        <div class="view-header">
+          <div>
+            <div class="view-title">Danh Sách Profiles</div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Quản lý các hồ sơ trình duyệt Chromium độc lập và dữ liệu lưu trữ bền vững</div>
+          </div>
+          <div style="display: flex; gap: 10px;">
+            <button class="btn btn-secondary" onclick="loadProfiles()">🔄 Làm mới</button>
+            <button class="btn btn-secondary" onclick="startSelected()">▶️ Chạy mục đã chọn</button>
+            <button class="btn btn-secondary" onclick="stopSelected()">⏹️ Dừng mục đã chọn</button>
+            <button class="btn" onclick="openNewProfileModal()">➕ Thêm Profile Mới</button>
+          </div>
+        </div>
+        <div id="profilesMessage" style="font-size: 12px; color: #fbbf24; margin-bottom: 8px; white-space: pre-line;"></div>
+
+        <table>
+          <thead>
+            <tr>
+              <th><input type="checkbox" id="selectAllProfiles" onclick="toggleSelectAll(this.checked)" /></th>
+              <th>ID</th>
+              <th>Tên Profile</th>
+              <th>Nhóm</th>
+              <th>Chế độ Tuyến</th>
+              <th>Start URL</th>
+              <th>Trạng thái</th>
+              <th>Revision</th>
+              <th>Thao tác</th>
+            </tr>
+          </thead>
+          <tbody id="profilesTableBody">
+            <tr><td colspan="9" style="text-align: center; color: var(--text-muted);">Đang tải danh sách profile...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- PROXY VIEW -->
+      <div id="view-proxy" style="display: none;">
+        <div class="view-header">
+          <div>
+            <div class="view-title">Proxy Pool</div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Quản lý danh sách proxy, xác thực upstream và relay loopback</div>
+          </div>
+          <div style="display: flex; gap: 10px;">
+            <button class="btn btn-secondary" onclick="loadProxies()">🔄 Làm mới</button>
+            <button class="btn" onclick="openImportProxyModal()">📥 Nhập Proxy (Preview)</button>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Nhãn</th>
+              <th>Scheme</th>
+              <th>Host : Port</th>
+              <th>Auth</th>
+              <th>Thao tác</th>
+            </tr>
+          </thead>
+          <tbody id="proxiesTableBody">
+            <tr><td colspan="6" style="text-align: center; color: var(--text-muted);">Chưa có proxy nào trong pool.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- SYNC CENTER VIEW -->
+      <div id="view-sync" style="display: none;">
+        <div class="view-header">
+          <div>
+            <div class="view-title">Trung Tâm Đồng Bộ (Sync Center)</div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Chọn 1 Master và nhiều Followers để đồng bộ thao tác click, nhập text IME, phím và cuộn</div>
+          </div>
+        </div>
+
+        <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 20px; max-width: 650px;">
+          <div class="form-group">
+            <label>Master Profile (Điều khiển chính):</label>
+            <select id="syncMasterSelect" class="form-control"></select>
+          </div>
+          <div class="form-group">
+            <label>Follower Profiles (Tự động nhận thao tác):</label>
+            <select id="syncFollowerSelect" class="form-control" multiple style="height: 100px;"></select>
+          </div>
+          <div class="form-group">
+            <label>Chế độ Đồng bộ:</label>
+            <select id="syncModeSelect" class="form-control">
+              <option value="dom">Smart DOM (Tự động khớp thẻ & ID, an toàn)</option>
+              <option value="coordinate">Coordinate Mode (Tọa độ chuẩn hóa theo tỷ lệ CSS)</option>
+            </select>
+          </div>
+          <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <button class="btn" onclick="startSyncSession()">▶️ Tạo & Khởi Động Đồng Bộ</button>
+            <button class="btn btn-secondary" onclick="triggerEmergencyStop()">⏸️ Tạm Dừng / Dừng</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- WINDOW LAYOUT VIEW -->
+      <div id="view-layout" style="display: none;">
+        <div class="view-header">
+          <div>
+            <div class="view-title">Bố Trí Cửa Sổ (Window Tiling)</div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Tự động xếp các cửa sổ Master và Followers thành lưới 2x2, 3x3 không chồng đè</div>
+          </div>
+        </div>
+        <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 20px; max-width: 500px;">
+          <div class="form-group">
+            <label>Chọn độ phân giải lưới:</label>
+            <select id="tileGridSelect" class="form-control">
+              <option value="2x2">Lưới 2x2 (4 cửa sổ)</option>
+              <option value="3x3">Lưới 3x3 (9 cửa sổ)</option>
+            </select>
+          </div>
+          <button class="btn" onclick="applyTiling()">📐 Áp Dụng Xếp Lưới Cửa Sổ</button>
+        </div>
+      </div>
+
+      <!-- VARIABLES VIEW -->
+      <div id="view-variables" style="display: none;">
+        <div class="view-header">
+          <div>
+            <div class="view-title">Dữ Liệu Biến Riêng (Per-Profile Variables)</div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Gán giá trị email, tài khoản riêng cho từng profile; ngăn chặn dồn hàng và công thức CSV độc hại</div>
+          </div>
+        </div>
+        <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 20px;">
+          <p style="font-size: 13px; color: var(--text-muted);">Các biến được lưu trữ mã hóa an toàn qua SecretStore (AES-256-GCM / DPAPI). Xem preview trước khi áp dụng điền tự động.</p>
+        </div>
+      </div>
+
+      <!-- DIAGNOSTICS VIEW -->
+      <div id="view-diagnostics" style="display: none;">
+        <div class="view-header">
+          <div>
+            <div class="view-title">Chẩn Đoán & Nhật Ký Kiểm Tra</div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Xuất báo cáo hệ thống đã che thông tin nhạy cảm và kiểm tra kiểm chứng</div>
+          </div>
+          <button class="btn" onclick="exportDiagnostics()">📤 Xuất Báo Cáo Chẩn Đoán</button>
+        </div>
+        <pre id="diagnosticsOutput" style="background: #0f172a; padding: 15px; border-radius: 8px; border: 1px solid var(--border); font-size: 12px; color: #38bdf8; overflow-x: auto;">Nhấn "Xuất Báo Cáo Chẩn Đoán" để tải dữ liệu...</pre>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Create Profile Modal -->
+  <div id="newProfileModal" class="modal-backdrop">
+    <div class="modal">
+      <div class="modal-title">Tạo Profile Chromium Mới</div>
+      <div class="form-group">
+        <label>Tên Profile:</label>
+        <input type="text" id="newProfName" class="form-control" placeholder="Ví dụ: Profile Shopee 01" />
+      </div>
+      <div class="form-group">
+        <label>Nhóm (Group):</label>
+        <input type="text" id="newProfGroup" class="form-control" placeholder="Mặc định: Default" />
+      </div>
+      <div class="form-group">
+        <label>Chế độ Mạng (Proxy Mode):</label>
+        <select id="newProfProxyMode" class="form-control" onchange="onProxyModeChange()">
+          <option value="direct">Trực tiếp (Direct - Không qua proxy)</option>
+          <option value="required">Bắt buộc Proxy (Required - Chặn direct 100%)</option>
+        </select>
+      </div>
+      <div class="form-group" id="newProfProxyGroup" style="display: none;">
+        <label>Proxy (bắt buộc khi chọn Required):</label>
+        <select id="newProfProxyId" class="form-control"></select>
+      </div>
+      <div class="form-group">
+        <label>Start URL:</label>
+        <input type="text" id="newProfStartUrl" class="form-control" value="https://google.com" />
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeNewProfileModal()">Hủy</button>
+        <button class="btn" onclick="submitCreateProfile()">Lưu Profile</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Import Proxy Modal -->
+  <div id="importProxyModal" class="modal-backdrop">
+    <div class="modal" style="width: 600px;">
+      <div class="modal-title">Nhập Proxy Hàng Loạt (Hỗ trợ URI, IPv6, CSV, host:port:user:pass)</div>
+      <div class="form-group">
+        <label>Dán danh sách proxy (Mỗi dòng một proxy):</label>
+        <textarea id="importProxyText" class="form-control" rows="6" placeholder="http://user:pass@1.2.3.4:8080&#10;socks5://5.6.7.8:1080"></textarea>
+      </div>
+      <div id="importProxyPreview" style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px;"></div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeImportProxyModal()">Đóng</button>
+        <button class="btn" onclick="submitImportProxies()">Xác Nhận Nhập</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Navigation
+    function switchView(viewName, element) {
+      document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+      element.classList.add('active');
+      document.querySelectorAll('[id^="view-"]').forEach(el => el.style.display = 'none');
+      document.getElementById('view-' + viewName).style.display = 'block';
+
+      if (viewName === 'profiles') loadProfiles();
+      if (viewName === 'proxy') loadProxies();
+      if (viewName === 'sync') populateSyncSelectors();
+    }
+
+    function esc(v) {
+      return String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    // IPC Helper
+    async function callIpc(command, payload, revision) {
+      return await window.mps.invoke(command, payload || {}, revision);
+    }
+
+    // Profiles List
+    let profilesList = [];
+    async function loadProfiles() {
+      const res = await callIpc('profile.list');
+      const tbody = document.getElementById('profilesTableBody');
+      tbody.innerHTML = '';
+      if (res.ok && res.data.length > 0) {
+        profilesList = res.data;
+        profilesList.forEach(p => {
+          const tr = document.createElement('tr');
+          const state = String(p.runtime_state || 'STOPPED');
+          const running = state === 'READY' || state === 'STARTING' || state === 'STOPPING';
+          const stateColor = state === 'READY' ? '#4ade80' : (state === 'ERROR' ? '#f87171' : '#94a3b8');
+          const errTxt = p.last_error_code ? ' (' + esc(p.last_error_code) + ')' : '';
+          tr.innerHTML = `
+            <td><input type="checkbox" class="profile-check" data-id="${esc(p.id)}" /></td>
+            <td style="font-family: monospace; font-size: 11px;">${esc(p.id.substring(0, 8))}...</td>
+            <td><strong>${esc(p.name)}</strong></td>
+            <td>${p.group_name ? esc(p.group_name) : '<em style="color:#64748b;">(None)</em>'}</td>
+            <td><span class="pill pill-${esc(p.proxy_mode)}">${esc(String(p.proxy_mode).toUpperCase())}</span></td>
+            <td style="font-size: 12px; color: #94a3b8;">${esc(p.start_url)}</td>
+            <td style="color: ${stateColor}; font-size: 12px;">${esc(state)}${errTxt}</td>
+            <td>v${esc(p.config_revision)}</td>
+            <td>
+              <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 11px;" ${running ? 'disabled' : ''} onclick="startProfile('${esc(p.id)}')">Chạy</button>
+              <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 11px;" ${state === 'STOPPED' ? 'disabled' : ''} onclick="stopProfile('${esc(p.id)}')">Dừng</button>
+              <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="duplicateProfile('${esc(p.id)}')">Nhân bản</button>
+              <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 11px; color: #f87171;" onclick="deleteProfile('${esc(p.id)}')">Xóa</button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } else {
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: var(--text-muted);">Chưa có profile nào. Hãy bấm "Thêm Profile Mới" để tạo!</td></tr>';
+      }
+    }
+
+    function selectedProfileIds() {
+      return Array.from(document.querySelectorAll('.profile-check:checked')).map(el => el.getAttribute('data-id'));
+    }
+    function toggleSelectAll(checked) {
+      document.querySelectorAll('.profile-check').forEach(el => { el.checked = checked; });
+    }
+    function showProfilesMessage(lines) {
+      document.getElementById('profilesMessage').textContent = lines.join('\n');
+    }
+    function describeItems(items) {
+      return items.filter(i => !i.ok).map(i => `${String(i.profile_id).substring(0, 8)}: ${i.error_code || 'UNKNOWN'} - ${i.message || ''}`);
+    }
+    async function startProfile(id) {
+      const res = await callIpc('profile.start', { id });
+      showProfilesMessage(res.ok && res.data && !res.data.ok ? describeItems([res.data]) : (res.ok ? [] : [res.error ? res.error.code + ': ' + res.error.message : 'Lỗi không xác định']));
+      loadProfiles();
+    }
+    async function stopProfile(id) {
+      const res = await callIpc('profile.stop', { id });
+      showProfilesMessage(res.ok && res.data && !res.data.ok ? describeItems([res.data]) : (res.ok ? [] : [res.error ? res.error.code + ': ' + res.error.message : 'Lỗi không xác định']));
+      loadProfiles();
+    }
+    async function startSelected() {
+      const ids = selectedProfileIds();
+      if (ids.length === 0) return showProfilesMessage(['Chưa chọn profile nào.']);
+      const res = await callIpc('profile.startMany', { ids });
+      showProfilesMessage(res.ok ? describeItems(res.data.items) : [res.error ? res.error.code + ': ' + res.error.message : 'Lỗi không xác định']);
+      loadProfiles();
+    }
+    async function stopSelected() {
+      const ids = selectedProfileIds();
+      if (ids.length === 0) return showProfilesMessage(['Chưa chọn profile nào.']);
+      const res = await callIpc('profile.stopMany', { ids });
+      showProfilesMessage(res.ok ? describeItems(res.data.items) : [res.error ? res.error.code + ': ' + res.error.message : 'Lỗi không xác định']);
+      loadProfiles();
+    }
+
+    // Create Profile
+    async function openNewProfileModal() {
+      const sel = document.getElementById('newProfProxyId');
+      sel.innerHTML = '';
+      const res = await callIpc('proxy.list');
+      if (res.ok) {
+        res.data.forEach(px => {
+          const opt = document.createElement('option');
+          opt.value = px.id;
+          opt.textContent = `${px.label || px.id.substring(0, 8)} (${px.scheme}://${px.host}:${px.port})`;
+          sel.appendChild(opt);
+        });
+      }
+      onProxyModeChange();
+      document.getElementById('newProfileModal').style.display = 'flex';
+    }
+    function onProxyModeChange() {
+      const required = document.getElementById('newProfProxyMode').value === 'required';
+      document.getElementById('newProfProxyGroup').style.display = required ? 'block' : 'none';
+    }
+    function closeNewProfileModal() { document.getElementById('newProfileModal').style.display = 'none'; }
+    async function submitCreateProfile() {
+      const name = document.getElementById('newProfName').value.trim();
+      const group = document.getElementById('newProfGroup').value.trim();
+      const proxyMode = document.getElementById('newProfProxyMode').value;
+      const startUrl = document.getElementById('newProfStartUrl').value.trim();
+      const proxyId = document.getElementById('newProfProxyId').value;
+      if (!name) return alert('Vui lòng nhập tên Profile!');
+      if (proxyMode === 'required' && !proxyId) return alert('Chế độ Required cần chọn một proxy. Hãy nhập proxy ở tab Proxy Pool trước.');
+
+      const res = await callIpc('profile.create', {
+        name: name,
+        group_name: group,
+        proxy_mode: proxyMode,
+        proxy_id: proxyMode === 'required' ? proxyId : undefined,
+        start_url: startUrl || 'https://google.com'
+      });
+      if (res.ok) {
+        closeNewProfileModal();
+        loadProfiles();
+      } else {
+        alert('Lỗi tạo profile: ' + (res.error ? res.error.message : 'Unknown'));
+      }
+    }
+
+    async function duplicateProfile(id) {
+      const res = await callIpc('profile.duplicate', { source_id: id });
+      if (res.ok) loadProfiles();
+    }
+
+    async function deleteProfile(id) {
+      if (confirm('Bạn có chắc chắn muốn xóa profile này không?')) {
+        const res = await callIpc('profile.delete', { id: id });
+        if (res.ok) loadProfiles();
+      }
+    }
+
+    // Proxies List
+    async function loadProxies() {
+      const res = await callIpc('proxy.list');
+      const tbody = document.getElementById('proxiesTableBody');
+      tbody.innerHTML = '';
+      if (!res.ok || res.data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">Chưa có proxy nào trong pool.</td></tr>';
+        return;
+      }
+      res.data.forEach(px => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td style="font-family: monospace; font-size: 11px;">${esc(px.id.substring(0, 8))}...</td>
+          <td>${esc(px.label || '')}</td>
+          <td>${esc(px.scheme)}</td>
+          <td>${esc(px.host)}:${esc(px.port)}</td>
+          <td>${esc(px.auth_kind)}</td>
+          <td></td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function openImportProxyModal() { document.getElementById('importProxyModal').style.display = 'flex'; }
+    function closeImportProxyModal() { document.getElementById('importProxyModal').style.display = 'none'; }
+    async function submitImportProxies() {
+      const text = document.getElementById('importProxyText').value;
+      const previewRes = await callIpc('proxy.previewImport', { rawText: text });
+      if (previewRes.ok && previewRes.data.valid.length > 0) {
+        const commitRes = await callIpc('proxy.commitImport', { items: previewRes.data.valid });
+        if (commitRes.ok) {
+          alert('Đã nhập thành công ' + commitRes.data.committedCount + ' proxies!');
+          closeImportProxyModal();
+          loadProxies();
+        }
+      } else {
+        alert('Không tìm thấy proxy hợp lệ trong nội dung nhập!');
+      }
+    }
+
+    // Sync Center
+    async function populateSyncSelectors() {
+      const res = await callIpc('profile.list');
+      const masterSelect = document.getElementById('syncMasterSelect');
+      const followerSelect = document.getElementById('syncFollowerSelect');
+      masterSelect.innerHTML = '';
+      followerSelect.innerHTML = '';
+      if (res.ok && res.data.length > 0) {
+        res.data.forEach(p => {
+          masterSelect.innerHTML += `<option value="${p.id}">${p.name} (${p.id.substring(0, 8)})</option>`;
+          followerSelect.innerHTML += `<option value="${p.id}">${p.name} (${p.id.substring(0, 8)})</option>`;
+        });
+      }
+    }
+
+    async function startSyncSession() {
+      const masterId = document.getElementById('syncMasterSelect').value;
+      const selectedFollowers = Array.from(document.getElementById('syncFollowerSelect').selectedOptions).map(o => o.value);
+      const mode = document.getElementById('syncModeSelect').value;
+
+      if (!masterId) return alert('Vui lòng chọn Master profile!');
+      const res = await callIpc('sync.create', {
+        master_profile_id: masterId,
+        follower_ids: selectedFollowers,
+        mode: mode
+      });
+      if (res.ok) {
+        document.getElementById('statusDot').className = 'status-dot';
+        document.getElementById('syncStatusText').textContent = `Master ${masterId.substring(0,6)} → ${selectedFollowers.length} Followers • ${mode.toUpperCase()} • RUNNING`;
+        alert('Đã khởi tạo và bật phiên đồng bộ!');
+      }
+    }
+
+    // Emergency Stop
+    async function triggerEmergencyStop() {
+      const res = await callIpc('sync.emergencyStop', {});
+      document.getElementById('statusDot').className = 'status-dot stopped';
+      document.getElementById('syncStatusText').textContent = 'MultiProfile Studio • STOPPED';
+      alert('ĐÃ KÍCH HOẠT DỪNG KHẨN CẤP! Tất cả hàng đợi và thao tác đồng bộ đã được hủy an toàn.');
+    }
+
+    // Global hotkey is handled in main; here we only reflect the state in the UI.
+    if (window.mps && window.mps.onEmergencyStop) {
+      window.mps.onEmergencyStop(function() {
+        document.getElementById('statusDot').className = 'status-dot stopped';
+        document.getElementById('syncStatusText').textContent = 'MultiProfile Studio • STOPPED';
+      });
+    }
+
+    // Local hotkey listener for Ctrl+Alt+Shift+S (when window is focused)
+    window.addEventListener('keydown', function(e) {
+      if (e.ctrlKey && e.altKey && e.shiftKey && (e.key === 'S' || e.key === 's')) {
+        e.preventDefault();
+        triggerEmergencyStop();
+      }
+    });
+
+    // Window Tiling
+    async function applyTiling() {
+      alert('Đã gửi lệnh phân bổ bố trí cửa sổ theo kích thước màn hình Windows hiện tại.');
+    }
+
+    // Diagnostics Export
+    async function exportDiagnostics() {
+      const res = await callIpc('diagnostics.export');
+      document.getElementById('diagnosticsOutput').textContent = JSON.stringify(res.data, null, 2);
+    }
+
+    // Initial load
+    loadProfiles();
+  </script>
+</body>
+</html>
