@@ -1,3 +1,8 @@
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+
+const execFileAsync = promisify(execFile);
+
 export interface DisplayBounds {
   x: number;
   y: number;
@@ -63,4 +68,67 @@ export function computeWindowTiling(options: TilingOptions): WindowPlacement[] {
       cssViewportHeight
     };
   });
+}
+
+export interface TilingApplyResult {
+  profileId: string;
+  pid: number;
+  success: boolean;
+  error?: string;
+}
+
+/**
+ * Apply tiling placements to running Chromium windows via PowerShell Win32 MoveWindow.
+ * Cannot use BrowserWindow.setBounds() because profiles are external Chromium processes.
+ * PowerShell inline Win32 is the safest approach requiring no native addon.
+ *
+ * @param placements - Array of WindowPlacement from computeWindowTiling()
+ * @param pidMap - Map of profileId → Chromium PID (from WindowsProcessSupervisor)
+ */
+export async function applyTilingToWindows(
+  placements: WindowPlacement[],
+  pidMap: Map<string, number>
+): Promise<TilingApplyResult[]> {
+  const results: TilingApplyResult[] = [];
+
+  for (const placement of placements) {
+    const pid = pidMap.get(placement.profileId);
+    if (pid === undefined || pid === 0) {
+      results.push({ profileId: placement.profileId, pid: 0, success: false, error: 'No PID registered for profile' });
+      continue;
+    }
+
+    // PowerShell inline: resolve main window handle via PID and call Win32 MoveWindow
+    const psScript = `
+Add-Type -MemberDefinition @'
+[DllImport("user32.dll")] public static extern bool MoveWindow(IntPtr hwnd, int x, int y, int w, int h, bool repaint);
+[DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hwnd, int nCmdShow);
+'@ -Name 'User32' -Namespace 'Win32' -ErrorAction SilentlyContinue
+$proc = Get-Process -Id ${pid} -ErrorAction SilentlyContinue
+if (-not $proc) { Write-Host "PROC_NOT_FOUND"; exit 1 }
+$hwnd = $proc.MainWindowHandle
+if ($hwnd -eq 0) { Write-Host "NO_MAIN_WINDOW"; exit 2 }
+[Win32.User32]::ShowWindow($hwnd, 9) | Out-Null
+$ok = [Win32.User32]::MoveWindow($hwnd, ${placement.x}, ${placement.y}, ${placement.width}, ${placement.height}, $true)
+if ($ok) { Write-Host "OK" } else { Write-Host "MOVE_FAILED"; exit 3 }
+`.trim();
+
+    try {
+      const { stdout } = await execFileAsync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', psScript], {
+        timeout: 10000,
+        windowsHide: true
+      });
+      const out = stdout.trim();
+      if (out === 'OK') {
+        results.push({ profileId: placement.profileId, pid, success: true });
+      } else {
+        results.push({ profileId: placement.profileId, pid, success: false, error: out || 'Unknown result' });
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      results.push({ profileId: placement.profileId, pid, success: false, error: msg });
+    }
+  }
+
+  return results;
 }

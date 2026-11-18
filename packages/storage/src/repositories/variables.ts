@@ -137,4 +137,23 @@ export class VariableRepository {
 
     return { items, allValid };
   }
+
+  public listDatasets(): VariableSetRecord[] {
+    const rows = this.db.prepare(
+      'SELECT id, name, revision, fields_json, created_at FROM variable_sets ORDER BY created_at ASC'
+    ).all() as Array<{ id: string; name: string; revision: number; fields_json: string; created_at: string }>;
+    return rows.map(r => ({
+      id: r.id,
+      name: r.name,
+      revision: r.revision,
+      fields: JSON.parse(r.fields_json) as string[],
+      created_at: r.created_at
+    }));
+  }
+
+  public deleteDataset(datasetId: string): void {
+    // Remove all variable values for this dataset, then the dataset itself
+    this.db.prepare('DELETE FROM variable_values WHERE dataset_id = ?').run(datasetId);
+    this.db.prepare('DELETE FROM variable_sets WHERE id = ?').run(datasetId);
+  }
 }

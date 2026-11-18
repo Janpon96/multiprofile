@@ -58,14 +58,17 @@ export class LocalProxyRelay {
     const assigned = this.config.assignedProxy;
     const creds = this.config.upstreamCredentials;
 
-    // Build canonical upstream URL
+    // Build canonical upstream URL (wrap IPv6 host in brackets for URL parser)
+    const hostFormatted = assigned.host.includes(':') && !assigned.host.startsWith('[')
+      ? `[${assigned.host}]`
+      : assigned.host;
     let upstreamUrl: string;
-    if (creds?.username && creds?.password) {
+    if (creds?.username !== undefined && creds.username !== '') {
       const u = encodeURIComponent(creds.username);
-      const p = encodeURIComponent(creds.password);
-      upstreamUrl = `${assigned.scheme}://${u}:${p}@${assigned.host}:${assigned.port}`;
+      const p = encodeURIComponent(creds.password ?? '');
+      upstreamUrl = `${assigned.scheme}://${u}:${p}@${hostFormatted}:${assigned.port}`;
     } else {
-      upstreamUrl = `${assigned.scheme}://${assigned.host}:${assigned.port}`;
+      upstreamUrl = `${assigned.scheme}://${hostFormatted}:${assigned.port}`;
     }
 
     this.server = new ProxyChainServer({

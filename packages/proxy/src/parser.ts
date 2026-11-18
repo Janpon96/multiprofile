@@ -28,13 +28,25 @@ export interface ProxyImportPreviewResult {
 export function maskProxyString(input: string): string {
   // Replace credentials in URI: scheme://user:pass@host:port -> scheme://***:***@host:port
   let masked = input.replace(
-    /^(https?|socks5):\/\/([^:]+):([^@]+)@/i,
+    /^(https?|socks5):\/\/([^:@/]+)(?::([^@/]*))?@/i,
     '$1://***:***@'
   );
+  // Replace scheme://host:port:user:pass -> scheme://host:port:***:***
+  masked = masked.replace(
+    /^(https?|socks5):\/\/([^:@/\[\]]+):(\d+):([^@/]+)$/i,
+    '$1://$2:$3:***:***'
+  );
+  // Replace bare user:pass@host:port -> ***:***@host:port
+  masked = masked.replace(
+    /^([^:@/\s]+):([^@/\s]*)@([^@/\s]+)$/,
+    '***:***@$3'
+  );
   // Replace legacy host:port:user:pass -> host:port:***:***
-  const legacyParts = masked.split(':');
-  if (legacyParts.length === 4) {
-    masked = `${legacyParts[0]}:${legacyParts[1]}:***:***`;
+  if (!/^[a-zA-Z0-9]+:\/\//.test(masked) && !masked.includes('@') && !masked.startsWith('[')) {
+    const legacyParts = masked.split(':');
+    if (legacyParts.length >= 4 && (legacyParts[0].includes('.') || legacyParts[0] === 'localhost')) {
+      masked = `${legacyParts[0]}:${legacyParts[1]}:***:***`;
+    }
   }
   return masked;
 }
@@ -47,19 +59,50 @@ export function parseProxyLine(line: string, lineNumber: number = 1): ParsedProx
 
   const masked = maskProxyString(trimmed);
 
-  // 1. Try URI format (http://, https://, socks5://)
-  if (/^[a-zA-Z0-9]+:\/\//i.test(trimmed)) {
+  // 1. Try URI format (http://, https://, socks5://) and provider hybrid scheme://host:port:user:pass
+  const schemeMatch = trimmed.match(/^([a-zA-Z0-9]+):\/\/(.+)$/);
+  if (schemeMatch) {
+    const rawScheme = schemeMatch[1].toLowerCase();
+    if (rawScheme !== 'http' && rawScheme !== 'https' && rawScheme !== 'socks5') {
+      throw new ProxyRoutingError(
+        'UNSUPPORTED_PROXY',
+        `Unsupported proxy scheme '${rawScheme}' at line ${lineNumber}. Supported schemes: http, https, socks5.`
+      );
+    }
+    const rest = schemeMatch[2];
+    if (!rest.includes('@') && !rest.startsWith('[')) {
+      const hybridParts = rest.split(':');
+      if (hybridParts.length >= 4 && (hybridParts[0].includes('.') || hybridParts[0] === 'localhost')) {
+        const host = hybridParts[0];
+        const port = parseInt(hybridParts[1], 10);
+        if (isNaN(port) || port < 1 || port > 65535) {
+          throw new ProxyRoutingError('CHECK_INCONCLUSIVE', `Invalid port number at line ${lineNumber}`);
+        }
+        const username = hybridParts[2] || undefined;
+        const password = username ? hybridParts.slice(3).join(':') : undefined;
+        const auth_kind: ProxyAuthKind = username ? (rawScheme === 'socks5' ? 'username_password' : 'basic') : 'none';
+        return {
+          scheme: rawScheme as ProxyScheme,
+          host,
+          port,
+          auth_kind,
+          username,
+          password,
+          raw_masked: masked
+        };
+      }
+    }
+
     try {
       const url = new URL(trimmed);
       const scheme = url.protocol.replace(':', '').toLowerCase();
-      if (scheme !== 'http' && scheme !== 'https' && scheme !== 'socks5') {
-        throw new ProxyRoutingError(
-          'UNSUPPORTED_PROXY',
-          `Unsupported proxy scheme '${scheme}' at line ${lineNumber}. Supported schemes: http, https, socks5.`
-        );
-      }
-
-      const port = url.port ? parseInt(url.port, 10) : (scheme === 'https' ? 443 : scheme === 'socks5' ? 1080 : 80);
+      // Distinguish explicit port in URL vs default port (check authority for ':digits')
+      const authority = trimmed.slice(schemeMatch[1].length + 3).split('/')[0];
+      const hostPortPart = authority.includes('@') ? authority.slice(authority.lastIndexOf('@') + 1) : authority;
+      const explicitPortMatch = hostPortPart.match(/:(\d+)$/);
+      const port = explicitPortMatch
+        ? parseInt(explicitPortMatch[1], 10)
+        : (url.port ? parseInt(url.port, 10) : (scheme === 'https' ? 443 : scheme === 'socks5' ? 1080 : 80));
       if (isNaN(port) || port < 1 || port > 65535) {
         throw new ProxyRoutingError('CHECK_INCONCLUSIVE', `Invalid port number at line ${lineNumber}`);
       }
@@ -74,7 +117,7 @@ export function parseProxyLine(line: string, lineNumber: number = 1): ParsedProx
       }
 
       const username = url.username ? decodeURIComponent(url.username) : undefined;
-      const password = url.password ? decodeURIComponent(url.password) : undefined;
+      const password = username ? (url.password ? decodeURIComponent(url.password) : '') : undefined;
 
       const auth_kind: ProxyAuthKind = username ? (scheme === 'socks5' ? 'username_password' : 'basic') : 'none';
 
@@ -94,6 +137,13 @@ export function parseProxyLine(line: string, lineNumber: number = 1): ParsedProx
         `Failed to parse proxy URI at line ${lineNumber}: ${masked}`
       );
     }
+  }
+
+  // 1b. Bare user:pass@host:port (defaults to http)
+  if (trimmed.includes('@') && !trimmed.includes(',')) {
+    const parsed = parseProxyLine(`http://${trimmed}`, lineNumber);
+    parsed.raw_masked = masked;
+    return parsed;
   }
 
   // 2. Try CSV format: proxy_id,label,scheme,host,port,username,password
@@ -134,14 +184,14 @@ export function parseProxyLine(line: string, lineNumber: number = 1): ParsedProx
 
   // 3. Try Legacy format: host:port:user:pass or host:port
   const parts = trimmed.split(':');
-  if (parts.length === 2 || parts.length === 4) {
+  if (parts.length === 2 || (parts.length >= 4 && (parts[0].includes('.') || parts[0] === 'localhost'))) {
     const host = parts[0];
     const port = parseInt(parts[1], 10);
-    if (isNaN(port) || port < 1 || port > 65535) {
+    if (!host || isNaN(port) || port < 1 || port > 65535) {
       throw new ProxyRoutingError('CHECK_INCONCLUSIVE', `Invalid port '${parts[1]}' at line ${lineNumber}`);
     }
-    const username = parts.length === 4 ? parts[2] : undefined;
-    const password = parts.length === 4 ? parts[3] : undefined;
+    const username = parts.length >= 4 ? (parts[2] || undefined) : undefined;
+    const password = username ? parts.slice(3).join(':') : undefined;
     const auth_kind: ProxyAuthKind = username ? 'basic' : 'none';
 
     return {

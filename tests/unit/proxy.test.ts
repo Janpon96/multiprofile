@@ -31,14 +31,33 @@ describe('Proxy Parser & Normalizer', () => {
     expect(() => parseProxyLine('pac://1.2.3.4:8080')).toThrow(/UNSUPPORTED_PROXY/);
   });
 
-  it('should parse legacy host:port:user:pass', () => {
-    const parsed = parseProxyLine('1.2.3.4:8888:admin:secret123');
+  it('should parse legacy host:port:user:pass and passwords containing colons', () => {
+    const parsed = parseProxyLine('1.2.3.4:8888:admin:secret:123');
     expect(parsed.scheme).toBe('http');
     expect(parsed.host).toBe('1.2.3.4');
     expect(parsed.port).toBe(8888);
     expect(parsed.username).toBe('admin');
-    expect(parsed.password).toBe('secret123');
+    expect(parsed.password).toBe('secret:123');
     expect(parsed.raw_masked).toBe('1.2.3.4:8888:***:***');
+  });
+
+  it('should parse hybrid scheme://host:port:user:pass and bare user:pass@host:port', () => {
+    const socks = parseProxyLine('socks5://103.10.20.30:1080:vnuser:vnpass123');
+    expect(socks.scheme).toBe('socks5');
+    expect(socks.host).toBe('103.10.20.30');
+    expect(socks.port).toBe(1080);
+    expect(socks.auth_kind).toBe('username_password');
+    expect(socks.username).toBe('vnuser');
+    expect(socks.password).toBe('vnpass123');
+    expect(socks.raw_masked).not.toContain('vnpass123');
+
+    const bareAt = parseProxyLine('u1:p1@203.0.113.5:3128');
+    expect(bareAt.scheme).toBe('http');
+    expect(bareAt.host).toBe('203.0.113.5');
+    expect(bareAt.port).toBe(3128);
+    expect(bareAt.username).toBe('u1');
+    expect(bareAt.password).toBe('p1');
+    expect(bareAt.raw_masked).toBe('***:***@203.0.113.5:3128');
   });
 
   it('should preview multi-line input in two-phase preview', () => {

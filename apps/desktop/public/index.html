@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
@@ -301,10 +301,12 @@
             <div class="view-title">Danh Sách Profiles</div>
             <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Quản lý các hồ sơ trình duyệt Chromium độc lập và dữ liệu lưu trữ bền vững</div>
           </div>
-          <div style="display: flex; gap: 10px;">
+          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
             <button class="btn btn-secondary" onclick="loadProfiles()">🔄 Làm mới</button>
+            <button class="btn btn-secondary" onclick="openBulkAssignProxyModal()">🌐 Gán Proxy mục đã chọn</button>
             <button class="btn btn-secondary" onclick="startSelected()">▶️ Chạy mục đã chọn</button>
             <button class="btn btn-secondary" onclick="stopSelected()">⏹️ Dừng mục đã chọn</button>
+            <button class="btn btn-secondary" onclick="tileSelectedProfiles()">🪟 Xếp Cửa Sổ</button>
             <button class="btn" onclick="openNewProfileModal()">➕ Thêm Profile Mới</button>
           </div>
         </div>
@@ -317,7 +319,7 @@
               <th>ID</th>
               <th>Tên Profile</th>
               <th>Nhóm</th>
-              <th>Chế độ Tuyến</th>
+              <th>Chế độ Tuyến / Proxy</th>
               <th>Start URL</th>
               <th>Trạng thái</th>
               <th>Revision</th>
@@ -335,13 +337,15 @@
         <div class="view-header">
           <div>
             <div class="view-title">Proxy Pool</div>
-            <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Quản lý danh sách proxy, xác thực upstream và relay loopback</div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Quản lý danh sách proxy, kiểm tra kết nối (Preflight), xác thực upstream và relay loopback</div>
           </div>
           <div style="display: flex; gap: 10px;">
             <button class="btn btn-secondary" onclick="loadProxies()">🔄 Làm mới</button>
+            <button class="btn btn-secondary" onclick="checkAllProxies()">🔍 Kiểm tra tất cả</button>
             <button class="btn" onclick="openImportProxyModal()">📥 Nhập Proxy (Preview)</button>
           </div>
         </div>
+        <div id="proxiesMessage" style="font-size: 12px; color: #fbbf24; margin-bottom: 8px; white-space: pre-line;"></div>
 
         <table>
           <thead>
@@ -350,12 +354,13 @@
               <th>Nhãn</th>
               <th>Scheme</th>
               <th>Host : Port</th>
-              <th>Auth</th>
+              <th>Auth / Đang gắn</th>
+              <th>Trạng thái</th>
               <th>Thao tác</th>
             </tr>
           </thead>
           <tbody id="proxiesTableBody">
-            <tr><td colspan="6" style="text-align: center; color: var(--text-muted);">Chưa có proxy nào trong pool.</td></tr>
+            <tr><td colspan="7" style="text-align: center; color: var(--text-muted);">Chưa có proxy nào trong pool.</td></tr>
           </tbody>
         </table>
       </div>
@@ -425,6 +430,22 @@
             </select>
           </div>
           <button class="btn" onclick="applyTiling()">📐 Áp Dụng Xếp Lưới Cửa Sổ</button>
+          <div id="tileMessage" style="margin-top: 12px; font-size: 12px; white-space: pre-line;"></div>
+        </div>
+
+        <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 20px; max-width: 500px; margin-top: 20px;">
+          <div class="view-title" style="font-size: 14px; margin-bottom: 10px;">🪟 Xếp Cửa Sổ Độc Lập</div>
+          <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 14px;">
+            Chọn các profile đang chạy bên dưới (profile đầu tiên sẽ làm Master) rồi bấm Xếp.
+          </p>
+          <div id="tileProfileList" style="background: #0f172a; border: 1px solid var(--border); border-radius: 6px; padding: 10px; max-height: 180px; overflow-y: auto; margin-bottom: 14px;">
+            <div style="color: var(--text-muted); font-size: 12px;">Đang tải...</div>
+          </div>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button class="btn btn-secondary" onclick="loadTileProfileList()">🔄 Làm mới danh sách</button>
+            <button class="btn" onclick="tileFromLayoutView()">🪟 Xếp Cửa Sổ Đã Chọn</button>
+          </div>
+          <div id="tileLayoutMessage" style="margin-top: 12px; font-size: 12px; white-space: pre-line;"></div>
         </div>
       </div>
 
@@ -432,12 +453,94 @@
       <div id="view-variables" style="display: none;">
         <div class="view-header">
           <div>
-            <div class="view-title">Dữ Liệu Biến Riêng (Per-Profile Variables)</div>
-            <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Gán giá trị email, tài khoản riêng cho từng profile; ngăn chặn dồn hàng và công thức CSV độc hại</div>
+            <div class="view-title">📋 Biến Thông Tin Riêng (Per-Profile Variables)</div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Gán email, tài khoản, SĐT riêng cho từng profile — dữ liệu mã hóa AES-256 qua SecretStore</div>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn" onclick="showCreateDatasetModal()">➕ Tạo Dataset Mới</button>
+            <button class="btn btn-secondary" onclick="showImportCsvModal()">📥 Import CSV</button>
           </div>
         </div>
-        <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 20px;">
-          <p style="font-size: 13px; color: var(--text-muted);">Các biến được lưu trữ mã hóa an toàn qua SecretStore (AES-256-GCM / DPAPI). Xem preview trước khi áp dụng điền tự động.</p>
+
+        <!-- Dataset selector bar -->
+        <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px; margin-bottom: 14px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+          <label style="font-size: 13px; color: var(--text-muted); white-space: nowrap;">Dataset hiện tại:</label>
+          <select id="varDatasetSelect" class="form-control" style="max-width: 280px;" onchange="onVarDatasetChange()">
+            <option value="">(Chưa có dataset — Tạo mới bên trên)</option>
+          </select>
+          <button class="btn btn-secondary" style="font-size: 12px;" onclick="deleteCurrentDataset()">🗑️ Xóa Dataset</button>
+          <div id="varFieldChips" style="display: flex; gap: 6px; flex-wrap: wrap;"></div>
+        </div>
+
+        <!-- Profile × field matrix table -->
+        <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; overflow: hidden;">
+          <table class="table" id="varMatrixTable" style="margin: 0;">
+            <thead><tr><th>Profile</th><th id="varMatrixFieldHeaders" colspan="99">— Chọn dataset để hiện bảng —</th></tr></thead>
+            <tbody id="varMatrixBody">
+              <tr><td colspan="10" style="text-align:center; color: var(--text-muted); padding: 20px;">Chọn dataset và tải dữ liệu để hiển thị bảng ma trận.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Action buttons -->
+        <div style="margin-top: 12px; display: flex; gap: 8px;">
+          <button class="btn" onclick="loadVarMatrix()">🔄 Tải Dữ Liệu</button>
+          <button class="btn btn-secondary" onclick="showVarPreview()">👁️ Xem Trước Inject</button>
+        </div>
+        <div id="varMessage" style="margin-top: 10px; font-size: 12px;"></div>
+      </div>
+
+      <!-- Modal: Tạo Dataset Mới -->
+      <div id="createDatasetModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 460px;">
+          <div class="modal-header"><h3>➕ Tạo Dataset Mới</h3><span class="modal-close" onclick="hideModal('createDatasetModal')">✕</span></div>
+          <div class="modal-body">
+            <label>Tên Dataset</label>
+            <input type="text" id="newDatasetName" class="form-control" placeholder="VD: Thông tin đăng ký Shopee" />
+            <label style="margin-top: 10px;">Thêm Fields (nhấn Enter để thêm)</label>
+            <div style="display: flex; gap: 6px;">
+              <input type="text" id="newFieldInput" class="form-control" placeholder="VD: email, password, phone..." onkeydown="if(event.key==='Enter'){addDatasetField();}" />
+              <button class="btn btn-secondary" onclick="addDatasetField()">+</button>
+            </div>
+            <div id="newDatasetFields" style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px;"></div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="hideModal('createDatasetModal')">Hủy</button>
+            <button class="btn" onclick="submitCreateDataset()">💾 Tạo Dataset</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal: Import CSV -->
+      <div id="importCsvModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 560px;">
+          <div class="modal-header"><h3>📥 Import CSV</h3><span class="modal-close" onclick="hideModal('importCsvModal')">✕</span></div>
+          <div class="modal-body">
+            <p style="font-size: 12px; color: var(--text-muted);">Dán nội dung CSV. Dòng đầu là header (phải có cột <code>profile_name</code> hoặc <code>profile_id</code>).</p>
+            <code style="display:block; background: #0f172a; padding: 6px; border-radius: 4px; font-size: 11px; color: #a5f3fc; margin-bottom: 8px;">profile_name,email,password,phone<br>Profile Shopee 01,user@gmail.com,p@ss,0901234567</code>
+            <textarea id="csvImportText" class="form-control" rows="6" placeholder="Dán CSV vào đây..."></textarea>
+            <div id="csvPreviewResult" style="margin-top: 8px; font-size: 12px; color: var(--text-muted);"></div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="hideModal('importCsvModal')">Hủy</button>
+            <button class="btn" onclick="submitCsvImport()">✅ Import &amp; Lưu</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal: Sửa ô biến -->
+      <div id="editVarModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 400px;">
+          <div class="modal-header"><h3>✏️ Nhập Giá Trị Biến</h3><span class="modal-close" onclick="hideModal('editVarModal')">✕</span></div>
+          <div class="modal-body">
+            <div id="editVarLabel" style="font-size: 13px; color: var(--text-muted); margin-bottom: 8px;"></div>
+            <input type="text" id="editVarValue" class="form-control" placeholder="Nhập giá trị..." />
+            <div style="margin-top: 6px; font-size: 11px; color: var(--text-muted);">💡 Giá trị được mã hóa AES-256 trước khi lưu — không ai đọc được ngoài profile.</div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="hideModal('editVarModal')">Hủy</button>
+            <button class="btn" onclick="submitEditVar()">💾 Lưu</button>
+          </div>
         </div>
       </div>
 
@@ -633,7 +736,7 @@
 
   <!-- Create Profile Modal -->
   <div id="newProfileModal" class="modal-backdrop">
-    <div class="modal">
+    <div class="modal" style="width: 520px;">
       <div class="modal-title">Tạo Profile Chromium Mới</div>
       <div class="form-group">
         <label>Tên Profile:</label>
@@ -650,9 +753,15 @@
           <option value="required">Bắt buộc Proxy (Required - Chặn direct 100%)</option>
         </select>
       </div>
-      <div class="form-group" id="newProfProxyGroup" style="display: none;">
-        <label>Proxy (bắt buộc khi chọn Required):</label>
+      <div class="form-group" id="newProfProxyGroup" style="display: none; background: #0f172a; padding: 12px; border-radius: 6px; border: 1px solid var(--border);">
+        <label>Chọn từ Proxy Pool:</label>
         <select id="newProfProxyId" class="form-control"></select>
+        <label style="margin-top: 10px;">Hoặc nhập nhanh Proxy mới (tự động lưu vào Proxy Pool):</label>
+        <div style="display: flex; gap: 6px;">
+          <input type="text" id="newProfProxyRaw" class="form-control" placeholder="ip:port:user:pass hoặc http://user:pass@ip:port hoặc socks5://..." />
+          <button type="button" class="btn btn-secondary" style="white-space: nowrap;" onclick="checkRawProxyInput('newProfProxyRaw', 'newProfProxyCheckMsg')">🔍 Kiểm tra</button>
+        </div>
+        <div id="newProfProxyCheckMsg" style="font-size: 11px; margin-top: 6px; color: var(--text-muted);"></div>
       </div>
       <div class="form-group">
         <label>Màu nhãn (để phân biệt cửa sổ Chrome):</label>
@@ -663,9 +772,73 @@
         <label>Start URL:</label>
         <input type="text" id="newProfStartUrl" class="form-control" value="https://google.com" />
       </div>
+      <div id="newProfileErrorMsg" style="font-size: 12px; color: #f87171; margin-bottom: 8px;"></div>
       <div class="modal-actions">
         <button class="btn btn-secondary" onclick="closeNewProfileModal()">Hủy</button>
         <button class="btn" onclick="submitCreateProfile()">Lưu Profile</button>
+        <button class="btn" style="background: #059669;" onclick="submitCreateProfile(true)">▶️ Lưu &amp; Chạy Ngay</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Configure & Launch Profile with Proxy Modal -->
+  <div id="profileProxyModal" class="modal-backdrop">
+    <div class="modal" style="width: 540px;">
+      <div class="modal-title" id="profileProxyModalTitle">🌐 Cấu Hình &amp; Khởi Chạy Với Proxy</div>
+      <input type="hidden" id="editProxyProfId" value="" />
+      <div id="editProxyProfStatusNote" style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;"></div>
+
+      <div class="form-group">
+        <label>Chế độ Kết Nối Mạng:</label>
+        <select id="editProxyMode" class="form-control" onchange="onEditProxyModeChange()">
+          <option value="required">Bắt buộc Proxy (Required - Qua Relay chống rò rỉ IP &amp; WebRTC)</option>
+          <option value="direct">Trực tiếp (Direct - Dùng mạng máy tính trực tiếp)</option>
+        </select>
+      </div>
+
+      <div id="editProxyRequiredSection" style="background: #0f172a; padding: 12px; border-radius: 6px; border: 1px solid var(--border); margin-bottom: 14px;">
+        <div class="form-group">
+          <label>Chọn Proxy có sẵn trong Pool:</label>
+          <select id="editProxySelect" class="form-control"></select>
+        </div>
+        <div class="form-group" style="margin-bottom: 6px;">
+          <label>Hoặc dán chuỗi Proxy mới (ưu tiên nếu nhập ô này):</label>
+          <div style="display: flex; gap: 6px;">
+            <input type="text" id="editProxyRaw" class="form-control" placeholder="ip:port:user:pass | http://user:pass@ip:port | socks5://..." />
+            <button type="button" class="btn btn-secondary" style="white-space: nowrap;" onclick="checkEditModalProxy()">🔍 Kiểm tra</button>
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+          <label>Nhãn gợi nhớ (tùy chọn khi nhập Proxy mới):</label>
+          <input type="text" id="editProxyLabel" class="form-control" placeholder="Ví dụ: Proxy VN Dân Cư 01" />
+        </div>
+      </div>
+
+      <div id="editProxyMessage" style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px; white-space: pre-line;"></div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeProfileProxyModal()">Đóng</button>
+        <button class="btn btn-secondary" id="btnSaveProxyOnly" onclick="submitProfileProxy(false)">💾 Lưu Cấu Hình</button>
+        <button class="btn" id="btnSaveAndLaunchProxy" style="background: #059669;" onclick="submitProfileProxy(true)">▶️ Lưu &amp; Chạy Với Proxy</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bulk Assign Proxy Modal -->
+  <div id="bulkAssignProxyModal" class="modal-backdrop">
+    <div class="modal" style="width: 580px;">
+      <div class="modal-title">🌐 Gán Proxy Hàng Loạt Cho Profile Đã Chọn</div>
+      <div class="form-group">
+        <label>Chính sách phân bổ Proxy từ Pool:</label>
+        <select id="bulkAssignPolicy" class="form-control" onchange="previewBulkAssign()">
+          <option value="unique">Mỗi profile 1 Proxy riêng biệt (Unique)</option>
+          <option value="shared">Chia sẻ xoay vòng nếu ít Proxy hơn Profile (Shared)</option>
+        </select>
+      </div>
+      <div id="bulkAssignPreviewBox" style="background: #0f172a; padding: 10px; border-radius: 6px; border: 1px solid var(--border); max-height: 220px; overflow-y: auto; font-size: 12px; margin-bottom: 10px;"></div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeBulkAssignProxyModal()">Đóng</button>
+        <button class="btn btn-secondary" onclick="commitBulkAssign(false)">💾 Áp Dụng Gán Proxy</button>
+        <button class="btn" style="background: #059669;" onclick="commitBulkAssign(true)">▶️ Gán &amp; Chạy Tất Cả</button>
       </div>
     </div>
   </div>
@@ -676,11 +849,12 @@
       <div class="modal-title">Nhập Proxy Hàng Loạt (Hỗ trợ URI, IPv6, CSV, host:port:user:pass)</div>
       <div class="form-group">
         <label>Dán danh sách proxy (Mỗi dòng một proxy):</label>
-        <textarea id="importProxyText" class="form-control" rows="6" placeholder="http://user:pass@1.2.3.4:8080&#10;socks5://5.6.7.8:1080"></textarea>
+        <textarea id="importProxyText" class="form-control" rows="6" placeholder="http://user:pass@1.2.3.4:8080&#10;socks5://5.6.7.8:1080&#10;103.1.2.3:8080:myuser:mypass"></textarea>
       </div>
-      <div id="importProxyPreview" style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px;"></div>
+      <div id="importProxyPreview" style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px; white-space: pre-line;"></div>
       <div class="modal-actions">
         <button class="btn btn-secondary" onclick="closeImportProxyModal()">Đóng</button>
+        <button class="btn btn-secondary" onclick="previewImportProxies()">🔍 Xem Trước</button>
         <button class="btn" onclick="submitImportProxies()">Xác Nhận Nhập</button>
       </div>
     </div>
@@ -697,6 +871,8 @@
       if (viewName === 'profiles') loadProfiles();
       if (viewName === 'proxy') loadProxies();
       if (viewName === 'sync') populateSyncSelectors();
+      if (viewName === 'layout') loadTileProfileList();
+      if (viewName === 'variables') loadVarDatasets();
     }
 
     function esc(v) {
@@ -722,12 +898,17 @@
           const running = state === 'READY' || state === 'STARTING' || state === 'STOPPING';
           const stateColor = state === 'READY' ? '#4ade80' : (state === 'ERROR' ? '#f87171' : '#94a3b8');
           const errTxt = p.last_error_code ? ' (' + esc(p.last_error_code) + ')' : '';
+          const proxyDetail = p.proxy_mode === 'required'
+            ? (p.proxy_summary
+                ? `<div style="font-size: 11px; color: #cbd5e1; margin-top: 3px; font-family: monospace;" title="${esc(p.proxy_label || p.proxy_summary)}">${esc(p.proxy_summary)}</div>`
+                : `<div style="font-size: 11px; color: #f87171; margin-top: 3px;">(Thiếu proxy)</div>`)
+            : '';
           tr.innerHTML = `
             <td><input type="checkbox" class="profile-check" data-id="${esc(p.id)}" /></td>
             <td style="font-family: monospace; font-size: 11px;">${esc(p.id.substring(0, 8))}...</td>
             <td><strong>${colorDot(p.preset && p.preset.color, 12)}${esc(p.name)}</strong></td>
             <td>${p.group_name ? esc(p.group_name) : '<em style="color:#64748b;">(None)</em>'}</td>
-            <td><span class="pill pill-${esc(p.proxy_mode)}">${esc(String(p.proxy_mode).toUpperCase())}</span></td>
+            <td><span class="pill pill-${esc(p.proxy_mode)}">${esc(String(p.proxy_mode).toUpperCase())}</span>${proxyDetail}</td>
             <td style="font-size: 12px; color: #94a3b8;">${esc(p.start_url)}</td>
             <td style="color: ${stateColor}; font-size: 12px;">${esc(state)}${errTxt}</td>
             <td>v${esc(p.config_revision)}</td>
@@ -737,6 +918,7 @@
                 ${PROFILE_COLORS.map(c => `<option value="${c.hex}" ${p.preset && p.preset.color === c.hex ? 'selected' : ''}>${c.emoji} ${c.label}</option>`).join('')}
               </select>
               <button class="btn" style="padding: 4px 8px; font-size: 11px;" ${state === 'READY' ? '' : 'disabled'} title="Đưa cửa sổ Chrome của profile này lên trước" onclick="focusProfile('${esc(p.id)}')">🎯 Chọn</button>
+              <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 11px;" title="Gán / Đổi Proxy &amp; Khởi chạy với Proxy" onclick="openProfileProxyModal('${esc(p.id)}')">🌐 Proxy</button>
               <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 11px;" ${running ? 'disabled' : ''} onclick="startProfile('${esc(p.id)}')">Chạy</button>
               <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 11px;" ${state === 'STOPPED' ? 'disabled' : ''} onclick="stopProfile('${esc(p.id)}')">Dừng</button>
               <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="duplicateProfile('${esc(p.id)}')">Nhân bản</button>
@@ -836,19 +1018,35 @@
         box.appendChild(b);
       });
     }
-    async function openNewProfileModal() {
-      renderColorPicker('newProfColorPicker', 'newProfColor', document.getElementById('newProfColor').value);
-      const sel = document.getElementById('newProfProxyId');
-      sel.innerHTML = '';
+    async function populateProxyDropdown(selectEl, selectedId, emptyLabel) {
+      selectEl.innerHTML = '';
       const res = await callIpc('proxy.list');
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = (res.ok && res.data.length > 0)
+        ? (emptyLabel || '-- Chọn Proxy từ Pool --')
+        : '-- Pool chưa có Proxy (nhập chuỗi mới bên dưới) --';
+      selectEl.appendChild(placeholder);
       if (res.ok) {
         res.data.forEach(px => {
           const opt = document.createElement('option');
           opt.value = px.id;
-          opt.textContent = `${px.label || px.id.substring(0, 8)} (${px.scheme}://${px.host}:${px.port})`;
-          sel.appendChild(opt);
+          const authBadge = px.auth_kind !== 'none' ? ' 🔒' : '';
+          opt.textContent = `${px.label || px.id.substring(0, 8)} (${px.scheme}://${px.host}:${px.port}${authBadge})`;
+          if (selectedId && px.id === selectedId) opt.selected = true;
+          selectEl.appendChild(opt);
         });
+        if (!selectedId && res.data.length > 0) {
+          selectEl.value = res.data[0].id;
+        }
       }
+    }
+    async function openNewProfileModal() {
+      document.getElementById('newProfileErrorMsg').textContent = '';
+      document.getElementById('newProfProxyRaw').value = '';
+      document.getElementById('newProfProxyCheckMsg').textContent = '';
+      renderColorPicker('newProfColorPicker', 'newProfColor', document.getElementById('newProfColor').value);
+      await populateProxyDropdown(document.getElementById('newProfProxyId'), '', '-- Chọn Proxy từ Pool --');
       onProxyModeChange();
       document.getElementById('newProfileModal').style.display = 'flex';
     }
@@ -857,31 +1055,237 @@
       document.getElementById('newProfProxyGroup').style.display = required ? 'block' : 'none';
     }
     function closeNewProfileModal() { document.getElementById('newProfileModal').style.display = 'none'; }
-    async function submitCreateProfile() {
+    async function submitCreateProfile(startImmediately) {
+      const errBox = document.getElementById('newProfileErrorMsg');
+      errBox.textContent = '';
       const name = document.getElementById('newProfName').value.trim();
       const group = document.getElementById('newProfGroup').value.trim();
       const proxyMode = document.getElementById('newProfProxyMode').value;
       const startUrl = document.getElementById('newProfStartUrl').value.trim();
       const proxyId = document.getElementById('newProfProxyId').value;
-      if (!name) return alert('Vui lòng nhập tên Profile!');
-      if (proxyMode === 'required' && !proxyId) return alert('Chế độ Required cần chọn một proxy. Hãy nhập proxy ở tab Proxy Pool trước.');
+      const proxyRaw = document.getElementById('newProfProxyRaw').value.trim();
+      if (!name) {
+        errBox.textContent = 'Vui lòng nhập tên Profile!';
+        return;
+      }
+      if (proxyMode === 'required' && !proxyRaw && !proxyId) {
+        errBox.textContent = 'Chế độ Required cần chọn một Proxy từ Pool hoặc nhập chuỗi Proxy mới ở trên.';
+        return;
+      }
 
       const color = document.getElementById('newProfColor').value;
       const res = await callIpc('profile.create', {
         name: name,
         group_name: group,
         proxy_mode: proxyMode,
-        proxy_id: proxyMode === 'required' ? proxyId : undefined,
+        proxy_id: proxyMode === 'required' && !proxyRaw ? proxyId : undefined,
+        proxy_raw: proxyMode === 'required' && proxyRaw ? proxyRaw : undefined,
         preset: color ? { viewport: { width: 1280, height: 720 }, color: color } : undefined,
         start_url: startUrl || 'https://google.com'
       });
       if (res.ok) {
         document.getElementById('newProfColor').value = '';
+        document.getElementById('newProfName').value = '';
+        document.getElementById('newProfProxyRaw').value = '';
         closeNewProfileModal();
+        if (startImmediately) {
+          showProfilesMessage(['Đang khởi chạy profile "' + name + '"...']);
+          const startRes = await callIpc('profile.start', { id: res.data.id });
+          if (startRes.ok && startRes.data && startRes.data.ok) {
+            showProfilesMessage(['Đã tạo và khởi chạy profile "' + name + '" thành công!']);
+          } else {
+            showProfilesMessage(startRes.ok && startRes.data ? describeItems([startRes.data]) : [startRes.error ? startRes.error.message : 'Lỗi khi khởi chạy']);
+          }
+        }
         loadProfiles();
       } else {
-        alert('Lỗi tạo profile: ' + (res.error ? res.error.message : 'Unknown'));
+        errBox.textContent = 'Lỗi tạo profile: ' + (res.error ? res.error.message : 'Unknown');
       }
+    }
+
+    // Configure & Launch Profile with Proxy
+    async function openProfileProxyModal(profileId) {
+      const p = profilesList.find(x => x.id === profileId);
+      if (!p) return;
+      document.getElementById('editProxyProfId').value = p.id;
+      document.getElementById('profileProxyModalTitle').textContent = '🌐 Cấu Hình Proxy — ' + p.name;
+      document.getElementById('editProxyRaw').value = '';
+      document.getElementById('editProxyLabel').value = '';
+      document.getElementById('editProxyMessage').textContent = '';
+
+      const state = String(p.runtime_state || 'STOPPED');
+      const isRunning = state === 'READY' || state === 'STARTING' || state === 'STOPPING';
+      const noteEl = document.getElementById('editProxyProfStatusNote');
+      const btnSaveOnly = document.getElementById('btnSaveProxyOnly');
+      const btnLaunch = document.getElementById('btnSaveAndLaunchProxy');
+
+      if (isRunning) {
+        noteEl.textContent = 'Trạng thái hiện tại: ' + state + '. Để áp dụng Proxy mới cho trình duyệt đang mở, hãy bấm "Lưu & Khởi Chạy Lại".';
+        btnSaveOnly.disabled = true;
+        btnLaunch.textContent = '🔄 Lưu & Khởi Chạy Lại';
+      } else {
+        noteEl.textContent = 'Trạng thái hiện tại: ' + state + '. Có thể lưu cấu hình hoặc khởi chạy trình duyệt ngay với Proxy.';
+        btnSaveOnly.disabled = false;
+        btnLaunch.textContent = p.proxy_mode === 'required' ? '▶️ Lưu & Chạy Với Proxy' : '▶️ Lưu & Chạy Ngay';
+      }
+
+      document.getElementById('editProxyMode').value = p.proxy_mode === 'direct' ? 'direct' : 'required';
+      await populateProxyDropdown(document.getElementById('editProxySelect'), p.proxy_id || '', '-- Chọn Proxy từ Pool --');
+      onEditProxyModeChange();
+      document.getElementById('profileProxyModal').style.display = 'flex';
+    }
+    function onEditProxyModeChange() {
+      const mode = document.getElementById('editProxyMode').value;
+      document.getElementById('editProxyRequiredSection').style.display = mode === 'required' ? 'block' : 'none';
+      const btnLaunch = document.getElementById('btnSaveAndLaunchProxy');
+      if (!document.getElementById('btnSaveProxyOnly').disabled) {
+        btnLaunch.textContent = mode === 'required' ? '▶️ Lưu & Chạy Với Proxy' : '▶️ Lưu & Chạy (Direct)';
+      }
+    }
+    function closeProfileProxyModal() {
+      document.getElementById('profileProxyModal').style.display = 'none';
+    }
+    function formatPreflightMessage(d) {
+      if (d.status === 'READY') {
+        return `✅ Kết nối Proxy OK (${d.status}) • IP ra ngoài: ${d.ipEcho || 'N/A'} • Độ trễ: ${d.latencyMs} ms`;
+      }
+      return `❌ ${d.status} (${d.latencyMs} ms)${d.errorMessage ? ': ' + d.errorMessage : ''}`;
+    }
+    async function checkRawProxyInput(inputId, msgId) {
+      const raw = document.getElementById(inputId).value.trim();
+      const msgEl = document.getElementById(msgId);
+      if (!raw) {
+        msgEl.style.color = '#f87171';
+        msgEl.textContent = 'Hãy nhập chuỗi Proxy trước khi kiểm tra.';
+        return;
+      }
+      msgEl.style.color = 'var(--text-muted)';
+      msgEl.textContent = '⏳ Đang kiểm tra kết nối qua Relay...';
+      const res = await callIpc('proxy.check', { rawProxy: raw, timeoutMs: 10000 });
+      if (!res.ok) {
+        msgEl.style.color = '#f87171';
+        msgEl.textContent = '❌ ' + (res.error ? res.error.message : 'Lỗi kiểm tra');
+        return;
+      }
+      msgEl.style.color = res.data.status === 'READY' ? '#4ade80' : '#f87171';
+      msgEl.textContent = formatPreflightMessage(res.data);
+    }
+    async function checkEditModalProxy() {
+      const raw = document.getElementById('editProxyRaw').value.trim();
+      const selectedId = document.getElementById('editProxySelect').value;
+      const msgEl = document.getElementById('editProxyMessage');
+      if (!raw && !selectedId) {
+        msgEl.style.color = '#f87171';
+        msgEl.textContent = 'Hãy chọn Proxy từ Pool hoặc nhập chuỗi Proxy mới để kiểm tra.';
+        return;
+      }
+      msgEl.style.color = 'var(--text-muted)';
+      msgEl.textContent = '⏳ Đang kiểm tra kết nối qua LocalProxyRelay...';
+      const res = await callIpc('proxy.check', raw ? { rawProxy: raw, timeoutMs: 10000 } : { id: selectedId, timeoutMs: 10000 });
+      if (!res.ok) {
+        msgEl.style.color = '#f87171';
+        msgEl.textContent = '❌ ' + (res.error ? res.error.message : 'Lỗi kiểm tra');
+        return;
+      }
+      msgEl.style.color = res.data.status === 'READY' ? '#4ade80' : '#f87171';
+      msgEl.textContent = formatPreflightMessage(res.data);
+    }
+    async function submitProfileProxy(startNow) {
+      const id = document.getElementById('editProxyProfId').value;
+      const mode = document.getElementById('editProxyMode').value;
+      const selectedId = document.getElementById('editProxySelect').value;
+      const raw = document.getElementById('editProxyRaw').value.trim();
+      const label = document.getElementById('editProxyLabel').value.trim();
+      const msgEl = document.getElementById('editProxyMessage');
+
+      if (mode === 'required' && !raw && !selectedId) {
+        msgEl.style.color = '#f87171';
+        msgEl.textContent = 'Vui lòng chọn Proxy trong danh sách hoặc nhập chuỗi Proxy mới.';
+        return;
+      }
+
+      msgEl.style.color = 'var(--text-muted)';
+      msgEl.textContent = startNow ? '⏳ Đang lưu cấu hình và khởi chạy trình duyệt...' : '⏳ Đang lưu cấu hình...';
+
+      const res = await callIpc('profile.setProxy', {
+        id: id,
+        proxy_mode: mode,
+        proxy_id: mode === 'required' && !raw ? selectedId : null,
+        proxy_raw: mode === 'required' && raw ? raw : undefined,
+        proxy_label: label || undefined,
+        start_now: Boolean(startNow),
+        restart_if_running: Boolean(startNow)
+      });
+
+      if (!res.ok) {
+        msgEl.style.color = '#f87171';
+        msgEl.textContent = '❌ ' + (res.error ? res.error.code + ': ' + res.error.message : 'Lỗi không xác định');
+        return;
+      }
+
+      closeProfileProxyModal();
+      const profName = res.data.profile ? res.data.profile.name : id.substring(0, 8);
+      if (startNow) {
+        const sr = res.data.start_result;
+        if (sr && sr.ok) {
+          showProfilesMessage([`Đã khởi chạy "${profName}" ở chế độ ${mode.toUpperCase()} thành công.`]);
+        } else {
+          showProfilesMessage(sr ? describeItems([sr]) : ['Khởi chạy thất bại.']);
+        }
+      } else {
+        showProfilesMessage([`Đã cập nhật chế độ mạng (${mode.toUpperCase()}) cho profile "${profName}".`]);
+      }
+      loadProfiles();
+    }
+
+    // Bulk Assign Proxies
+    let bulkSelectedIds = [];
+    async function openBulkAssignProxyModal() {
+      bulkSelectedIds = selectedProfileIds();
+      if (bulkSelectedIds.length === 0) {
+        showProfilesMessage(['Hãy tích chọn ít nhất 1 profile trong bảng trước khi bấm "Gán Proxy mục đã chọn".']);
+        return;
+      }
+      document.getElementById('bulkAssignProxyModal').style.display = 'flex';
+      await previewBulkAssign();
+    }
+    function closeBulkAssignProxyModal() {
+      document.getElementById('bulkAssignProxyModal').style.display = 'none';
+    }
+    async function previewBulkAssign() {
+      const box = document.getElementById('bulkAssignPreviewBox');
+      const policy = document.getElementById('bulkAssignPolicy').value;
+      const res = await callIpc('proxy.assign', { profileIds: bulkSelectedIds, policy: policy });
+      if (!res.ok) {
+        box.innerHTML = `<div style="color: #f87171;">❌ ${esc(res.error ? res.error.message : 'Không thể phân bổ Proxy')}</div>`;
+        return;
+      }
+      const byId = new Map(profilesList.map(p => [p.id, p.name]));
+      box.innerHTML = res.data.mappings.map(m => {
+        const warn = m.duplicate_host_warning ? ' <span style="color:#fbbf24;">(⚠️ Trùng IP host)</span>' : '';
+        return `<div style="padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.06);"><strong>${esc(byId.get(m.profile_id) || m.profile_id.substring(0, 8))}</strong> → <code>${esc(m.proxy_host)}:${esc(m.proxy_port)}</code>${warn}</div>`;
+      }).join('');
+    }
+    async function commitBulkAssign(startAfter) {
+      const policy = document.getElementById('bulkAssignPolicy').value;
+      const box = document.getElementById('bulkAssignPreviewBox');
+      const res = await callIpc('proxy.commitAssign', {
+        profileIds: bulkSelectedIds,
+        policy: policy,
+        startAfterAssign: Boolean(startAfter)
+      });
+      if (!res.ok) {
+        box.innerHTML = `<div style="color: #f87171;">❌ ${esc(res.error ? res.error.message : 'Lỗi gán Proxy')}</div>`;
+        return;
+      }
+      closeBulkAssignProxyModal();
+      if (startAfter && res.data.start_batch) {
+        const errs = describeItems(res.data.start_batch.items);
+        showProfilesMessage(errs.length > 0 ? errs : [`Đã gán Proxy và khởi chạy ${res.data.assignedCount} profile thành công.`]);
+      } else {
+        showProfilesMessage([`Đã gán Proxy cho ${res.data.assignedCount} profile.`]);
+      }
+      loadProfiles();
     }
 
     async function duplicateProfile(id) {
@@ -897,41 +1301,105 @@
     }
 
     // Proxies List
+    let proxyStatusMap = {};
     async function loadProxies() {
       const res = await callIpc('proxy.list');
       const tbody = document.getElementById('proxiesTableBody');
       tbody.innerHTML = '';
       if (!res.ok || res.data.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">Chưa có proxy nào trong pool.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">Chưa có proxy nào trong pool. Bấm "Nhập Proxy" để thêm!</td></tr>';
         return;
       }
       res.data.forEach(px => {
         const tr = document.createElement('tr');
+        const st = proxyStatusMap[px.id];
+        const stHtml = st
+          ? `<span style="color: ${st.ok ? '#4ade80' : '#f87171'}; font-size: 11px;">${esc(st.text)}</span>`
+          : `<span style="color: var(--text-muted); font-size: 11px;">Chưa kiểm tra</span>`;
+        const usedTxt = px.used_by_count > 0 ? ` • <span style="color:#38bdf8;">${px.used_by_count} profile</span>` : '';
         tr.innerHTML = `
           <td style="font-family: monospace; font-size: 11px;">${esc(px.id.substring(0, 8))}...</td>
           <td>${esc(px.label || '')}</td>
-          <td>${esc(px.scheme)}</td>
-          <td>${esc(px.host)}:${esc(px.port)}</td>
-          <td>${esc(px.auth_kind)}</td>
-          <td></td>`;
+          <td><span class="pill pill-required">${esc(String(px.scheme).toUpperCase())}</span></td>
+          <td style="font-family: monospace; font-size: 12px;">${esc(px.host)}:${esc(px.port)}</td>
+          <td style="font-size: 12px;">${esc(px.auth_kind)}${usedTxt}</td>
+          <td id="proxyStatusCell_${esc(px.id)}">${stHtml}</td>
+          <td>
+            <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="checkSingleProxy('${esc(px.id)}')">🔍 Kiểm tra</button>
+            <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 11px; color: #f87171;" onclick="deleteProxyItem('${esc(px.id)}')">🗑️ Xóa</button>
+          </td>`;
         tbody.appendChild(tr);
       });
     }
+    async function checkSingleProxy(id) {
+      const cell = document.getElementById('proxyStatusCell_' + id);
+      if (cell) cell.innerHTML = '<span style="color: var(--text-muted); font-size: 11px;">⏳ Đang kiểm tra...</span>';
+      const res = await callIpc('proxy.check', { id: id, timeoutMs: 10000 });
+      if (res.ok) {
+        const d = res.data;
+        const ok = d.status === 'READY';
+        const text = ok ? `READY (${d.ipEcho || 'OK'} • ${d.latencyMs}ms)` : `${d.status} (${d.latencyMs}ms)`;
+        proxyStatusMap[id] = { ok, text };
+      } else {
+        proxyStatusMap[id] = { ok: false, text: res.error ? res.error.code : 'ERROR' };
+      }
+      loadProxies();
+    }
+    async function checkAllProxies() {
+      const res = await callIpc('proxy.list');
+      if (!res.ok || res.data.length === 0) return;
+      document.getElementById('proxiesMessage').textContent = `Đang kiểm tra ${res.data.length} proxy...`;
+      await Promise.all(res.data.map(px => checkSingleProxy(px.id)));
+      document.getElementById('proxiesMessage').textContent = `Đã kiểm tra xong ${res.data.length} proxy.`;
+    }
+    async function deleteProxyItem(id) {
+      const res = await callIpc('proxy.delete', { id: id });
+      document.getElementById('proxiesMessage').textContent = res.ok
+        ? 'Đã xóa proxy khỏi Pool.'
+        : '❌ ' + (res.error ? res.error.message : 'Không thể xóa proxy');
+      if (res.ok) {
+        delete proxyStatusMap[id];
+        loadProxies();
+      }
+    }
 
-    function openImportProxyModal() { document.getElementById('importProxyModal').style.display = 'flex'; }
+    function openImportProxyModal() {
+      document.getElementById('importProxyPreview').textContent = '';
+      document.getElementById('importProxyModal').style.display = 'flex';
+    }
     function closeImportProxyModal() { document.getElementById('importProxyModal').style.display = 'none'; }
+    async function previewImportProxies() {
+      const text = document.getElementById('importProxyText').value;
+      const box = document.getElementById('importProxyPreview');
+      const previewRes = await callIpc('proxy.previewImport', { rawText: text });
+      if (!previewRes.ok) {
+        box.style.color = '#f87171';
+        box.textContent = '❌ ' + (previewRes.error ? previewRes.error.message : 'Lỗi phân tích');
+        return;
+      }
+      const d = previewRes.data;
+      const lines = [`Hợp lệ: ${d.summary.validCount}/${d.summary.total} dòng.`];
+      if (d.invalid.length > 0) {
+        d.invalid.slice(0, 5).forEach(inv => lines.push(`Dòng ${inv.line} (${inv.raw_masked}): ${inv.error}`));
+      }
+      box.style.color = d.summary.validCount > 0 ? '#4ade80' : '#f87171';
+      box.textContent = lines.join('\n');
+    }
     async function submitImportProxies() {
       const text = document.getElementById('importProxyText').value;
+      const box = document.getElementById('importProxyPreview');
       const previewRes = await callIpc('proxy.previewImport', { rawText: text });
       if (previewRes.ok && previewRes.data.valid.length > 0) {
         const commitRes = await callIpc('proxy.commitImport', { items: previewRes.data.valid });
         if (commitRes.ok) {
-          alert('Đã nhập thành công ' + commitRes.data.committedCount + ' proxies!');
+          document.getElementById('importProxyText').value = '';
           closeImportProxyModal();
+          document.getElementById('proxiesMessage').textContent = `Đã nhập thành công ${commitRes.data.committedCount} proxy vào Pool.`;
           loadProxies();
         }
       } else {
-        alert('Không tìm thấy proxy hợp lệ trong nội dung nhập!');
+        box.style.color = '#f87171';
+        box.textContent = 'Không tìm thấy proxy hợp lệ trong nội dung nhập! Hỗ trợ: ip:port:user:pass, http://user:pass@ip:port, socks5://...';
       }
     }
 
@@ -1135,8 +1603,330 @@
 
     // Window Tiling
     async function applyTiling() {
-      alert('Đã gửi lệnh phân bổ bố trí cửa sổ theo kích thước màn hình Windows hiện tại.');
+      // Use master/follower from active sync session, or fall back to all READY profiles
+      let masterProfileId = null;
+      let followerProfileIds = [];
+
+      if (typeof currentSyncSessionId !== 'undefined' && currentSyncSessionId) {
+        const statusRes = await callIpc('sync.status', { session_id: currentSyncSessionId });
+        if (statusRes.ok && statusRes.data) {
+          masterProfileId = statusRes.data.master_profile_id;
+          followerProfileIds = statusRes.data.follower_ids || [];
+        }
+      }
+
+      if (!masterProfileId) {
+        const listRes = await callIpc('profile.list');
+        if (listRes.ok && listRes.data) {
+          const running = listRes.data.filter(p => p.runtime_state === 'READY');
+          if (running.length === 0) {
+            showTileMessage('Đị không có profile nào đang chạy (READY) để xếp lưới.', true);
+            return;
+          }
+          masterProfileId = running[0].id;
+          followerProfileIds = running.slice(1).map(p => p.id);
+        }
+      }
+
+      showTileMessage('⏳ Đang xếp lưới cửa sổ...', false);
+
+      const gridVal = document.getElementById('tileGridSelect') ? document.getElementById('tileGridSelect').value : '2x2';
+      const gridCols = gridVal === '3x3' ? 3 : 2;
+      const gridRows = gridCols;
+
+      const res = await callIpc('window.tile', { masterProfileId, followerProfileIds, gridCols, gridRows });
+
+      if (!res.ok) {
+        showTileMessage('❌ Lỗi xếp lưới: ' + (res.error ? res.error.message : 'Không xác định'), true);
+        return;
+      }
+      const d = res.data;
+      const failed = (d.results || []).filter(r => !r.success);
+      if (failed.length === 0) {
+        showTileMessage('✅ Đã xếp lưới ' + d.successCount + '/' + d.totalCount + ' cửa sổ thành công!', false);
+      } else {
+        const errSummary = failed.map(r => r.profileId.substring(0, 8) + ': ' + (r.error || 'thất bại')).join('\n');
+        showTileMessage('⚠️ Xếp lưới ' + d.successCount + '/' + d.totalCount + ' cửa sổ OK. Thất bại:\n' + errSummary, true);
+      }
     }
+
+    function showTileMessage(text, isError) {
+      const el = document.getElementById('tileMessage');
+      if (!el) return;
+      el.textContent = text;
+      el.style.color = isError ? 'var(--danger)' : 'var(--success)';
+    }
+
+    // Standalone tile from Profiles tab (uses checkbox selection)
+    async function tileSelectedProfiles() {
+      const ids = selectedProfileIds();
+      if (ids.length === 0) {
+        showProfilesMessage(['Hãy tích chọn ít nhất 1 profile đang chạy để xếp lưới.']);
+        return;
+      }
+      showProfilesMessage(['⏳ Đang xếp lưới cửa sổ profile đã chọn...']);
+      const masterProfileId = ids[0];
+      const followerProfileIds = ids.slice(1);
+      const res = await callIpc('window.tile', { masterProfileId, followerProfileIds });
+      if (!res.ok) {
+        showProfilesMessage(['❌ Lỗi xếp lưới: ' + (res.error ? res.error.message : 'Không xác định')]);
+        return;
+      }
+      const d = res.data;
+      showProfilesMessage(['✅ Đã xếp lưới ' + d.successCount + '/' + d.totalCount + ' cửa sổ. Profile đầu tiên là Master.']);
+    }
+
+    // Layout view: load running profiles into checkbox list
+    async function loadTileProfileList() {
+      const listEl = document.getElementById('tileProfileList');
+      if (!listEl) return;
+      listEl.innerHTML = '<div style="color: var(--text-muted); font-size: 12px;">Đang tải...</div>';
+      const res = await callIpc('profile.list');
+      if (!res.ok || !res.data) {
+        listEl.innerHTML = '<div style="color: var(--danger); font-size: 12px;">Không thể tải danh sách profile.</div>';
+        return;
+      }
+      const running = res.data.filter(p => p.runtime_state === 'READY');
+      if (running.length === 0) {
+        listEl.innerHTML = '<div style="color: var(--text-muted); font-size: 12px;">Không có profile nào đang READY. Hãy khởi chạy ít nhất 1 profile.</div>';
+        return;
+      }
+      listEl.innerHTML = running.map((p, i) =>
+        '<label style="display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; padding: 4px 0;">' +
+        '<input type="checkbox" class="tile-profile-cb" value="' + esc(p.id) + '" ' + (i < 4 ? 'checked' : '') + ' />' +
+        '<span>' + colorDot(p.preset && p.preset.color, 10) + esc(p.name) + ' <span style="color: var(--text-muted); font-size: 11px;">(' + esc(p.id.substring(0, 8)) + ')</span></span>' +
+        (i === 0 ? '<span class="pill pill-required" style="font-size:10px;">&#x1F451; Master</span>' : '') +
+        '</label>'
+      ).join('');
+    }
+
+    // Layout view: apply tiling to chosen profiles
+    async function tileFromLayoutView() {
+      const checked = Array.from(document.querySelectorAll('.tile-profile-cb:checked')).map(el => el.value);
+      if (checked.length === 0) {
+        const msgEl = document.getElementById('tileLayoutMessage');
+        if (msgEl) { msgEl.textContent = 'Hãy chọn ít nhất 1 profile.'; msgEl.style.color = 'var(--danger)'; }
+        return;
+      }
+      const msgEl = document.getElementById('tileLayoutMessage');
+      if (msgEl) { msgEl.textContent = '⏳ Đang xếp lưới...'; msgEl.style.color = 'var(--text-muted)'; }
+
+      const gridVal = document.getElementById('tileGridSelect') ? document.getElementById('tileGridSelect').value : '2x2';
+      const gridCols = gridVal === '3x3' ? 3 : 2;
+      const gridRows = gridCols;
+
+      const res = await callIpc('window.tile', {
+        masterProfileId: checked[0],
+        followerProfileIds: checked.slice(1),
+        gridCols,
+        gridRows
+      });
+      if (!res.ok) {
+        if (msgEl) { msgEl.textContent = '❌ ' + (res.error ? res.error.message : 'Lỗi không xác định'); msgEl.style.color = 'var(--danger)'; }
+        return;
+      }
+      const d = res.data;
+      const failed = (d.results || []).filter(r => !r.success);
+      const text = failed.length === 0
+        ? '✅ Đã xếp lưới ' + d.successCount + '/' + d.totalCount + ' cửa sổ thành công!'
+        : '⚠️ ' + d.successCount + '/' + d.totalCount + ' OK. Thất bại:\n' + failed.map(r => r.profileId.substring(0, 8) + ': ' + (r.error || 'thất bại')).join('\n');
+      if (msgEl) { msgEl.textContent = text; msgEl.style.color = failed.length === 0 ? 'var(--success)' : 'var(--warning)'; }
+    }
+
+    // ══════════════════════════════════════════════════════
+    // VARIABLES MODULE
+    // ══════════════════════════════════════════════════════
+
+    let currentDatasetId = null;
+    let currentDatasetFields = [];
+    let pendingVarEdits = {};
+    let newDatasetFieldsList = [];
+    let editVarContext = null;
+
+    async function loadVarDatasets() {
+      const res = await callIpc('variable.dataset.list', {});
+      const sel = document.getElementById('varDatasetSelect');
+      if (!sel) return;
+      sel.innerHTML = '<option value="">(Chưa có dataset)</option>';
+      if (res.ok && res.data && res.data.length > 0) {
+        for (const ds of res.data) {
+          const opt = document.createElement('option');
+          opt.value = ds.id;
+          opt.textContent = ds.name + ' (' + ds.fields.join(', ') + ')';
+          sel.appendChild(opt);
+        }
+        if (res.data.length === 1) {
+          sel.value = res.data[0].id;
+          currentDatasetId = res.data[0].id;
+          currentDatasetFields = res.data[0].fields;
+          renderFieldChips();
+          await loadVarMatrix();
+        }
+      } else { currentDatasetId = null; currentDatasetFields = []; renderFieldChips(); }
+    }
+
+    function onVarDatasetChange() {
+      const sel = document.getElementById('varDatasetSelect');
+      const opt = sel && sel.selectedOptions[0];
+      currentDatasetId = sel ? sel.value : null;
+      if (opt && opt.textContent.includes('(')) {
+        const m = opt.textContent.match(/\((.+)\)$/);
+        currentDatasetFields = m ? m[1].split(', ').map(f => f.trim()) : [];
+      } else { currentDatasetFields = []; }
+      renderFieldChips(); loadVarMatrix();
+    }
+
+    function renderFieldChips() {
+      const el = document.getElementById('varFieldChips');
+      if (!el) return;
+      el.innerHTML = currentDatasetFields.map(f =>
+        '<span style="background:#1e3a5f;color:#38bdf8;padding:2px 8px;border-radius:12px;font-size:11px;">' + f + '</span>'
+      ).join('');
+    }
+
+    async function loadVarMatrix() {
+      if (!currentDatasetId || currentDatasetFields.length === 0) {
+        document.getElementById('varMatrixBody').innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--text-muted);padding:20px;">Chọn dataset trước.</td></tr>';
+        return;
+      }
+      const profilesRes = await callIpc('profile.list', {});
+      if (!profilesRes.ok) return;
+      const profiles = profilesRes.data || [];
+      const thead = document.querySelector('#varMatrixTable thead tr');
+      if (thead) thead.innerHTML = '<th>Profile</th>' + currentDatasetFields.map(f => '<th>' + f + '</th>').join('') + '<th></th>';
+      const previewRes = await callIpc('variable.preview', {
+        datasetId: currentDatasetId,
+        profileIds: profiles.map(p => p.id),
+        requiredFields: currentDatasetFields
+      });
+      const previewMap = {};
+      if (previewRes.ok && previewRes.data && previewRes.data.items) {
+        for (const item of previewRes.data.items) previewMap[item.profile_id] = item.values_masked || {};
+      }
+      const tbody = document.getElementById('varMatrixBody');
+      if (profiles.length === 0) { tbody.innerHTML = '<tr><td colspan="' + (currentDatasetFields.length + 2) + '" style="text-align:center;color:var(--text-muted);">Chưa có profile.</td></tr>'; return; }
+      tbody.innerHTML = profiles.map(p => {
+        const masked = previewMap[p.id] || {};
+        const cells = currentDatasetFields.map(f => '<td style="font-size:12px;">' + (masked[f] || '<span style="color:var(--text-muted)">trống</span>') + '</td>').join('');
+        return '<tr><td><span style="color:' + (p.color || '#fff') + ';">' + p.name + '</span></td>' + cells + '<td><button class="btn btn-secondary" style="font-size:11px;padding:2px 8px;" onclick="openEditVarRow(\'' + p.id + '\',\'' + p.name.replace(/'/g,"&#39;") + '\')">✏️</button></td></tr>';
+      }).join('');
+      showVarMsg('Đã tải ' + profiles.length + ' profile.');
+    }
+
+    function openEditVarRow(profileId, profileName) {
+      editVarContext = { profileId, profileName, fieldIndex: 0 };
+      openNextFieldEdit();
+    }
+
+    function openNextFieldEdit() {
+      if (!editVarContext || editVarContext.fieldIndex >= currentDatasetFields.length) { hideModal('editVarModal'); return; }
+      const fieldName = currentDatasetFields[editVarContext.fieldIndex];
+      const isSensitive = /pass|secret|key|token/i.test(fieldName);
+      document.getElementById('editVarLabel').textContent = 'Profile: ' + editVarContext.profileName + '  |  Field: ' + fieldName + ' (' + (editVarContext.fieldIndex + 1) + '/' + currentDatasetFields.length + ')';
+      const inp = document.getElementById('editVarValue');
+      inp.type = isSensitive ? 'password' : 'text';
+      inp.value = '';
+      inp.placeholder = 'Nhập ' + fieldName + '...';
+      showModal('editVarModal'); inp.focus();
+    }
+
+    async function submitEditVar() {
+      if (!editVarContext) return;
+      const fieldName = currentDatasetFields[editVarContext.fieldIndex];
+      const value = document.getElementById('editVarValue').value.trim();
+      if (value) {
+        const res = await callIpc('variable.profile.set', { datasetId: currentDatasetId, profileId: editVarContext.profileId, fieldName, value });
+        if (!res.ok) showVarMsg('Lỗi lưu ' + fieldName + ': ' + (res.error && res.error.message), true);
+      }
+      editVarContext.fieldIndex++;
+      openNextFieldEdit();
+      if (editVarContext.fieldIndex >= currentDatasetFields.length) await loadVarMatrix();
+    }
+
+    function showCreateDatasetModal() {
+      newDatasetFieldsList = [];
+      document.getElementById('newDatasetName').value = '';
+      document.getElementById('newFieldInput').value = '';
+      document.getElementById('newDatasetFields').innerHTML = '';
+      showModal('createDatasetModal');
+    }
+
+    function addDatasetField() {
+      const inp = document.getElementById('newFieldInput');
+      const val = inp.value.trim().replace(/\s+/g, '_');
+      if (!val || newDatasetFieldsList.includes(val)) { inp.value = ''; return; }
+      newDatasetFieldsList.push(val);
+      inp.value = '';
+      const container = document.getElementById('newDatasetFields');
+      const chip = document.createElement('span');
+      chip.style.cssText = 'background:#1e3a5f;color:#38bdf8;padding:2px 10px;border-radius:12px;font-size:12px;cursor:pointer;';
+      chip.textContent = val + ' ×';
+      chip.onclick = () => { newDatasetFieldsList = newDatasetFieldsList.filter(f => f !== val); chip.remove(); };
+      container.appendChild(chip);
+    }
+
+    async function submitCreateDataset() {
+      const name = document.getElementById('newDatasetName').value.trim();
+      if (!name) { alert('Nhập tên dataset!'); return; }
+      if (newDatasetFieldsList.length === 0) { alert('Thêm ít nhất 1 field!'); return; }
+      const res = await callIpc('variable.dataset.create', { name, fields: newDatasetFieldsList });
+      if (res.ok) {
+        hideModal('createDatasetModal');
+        await loadVarDatasets();
+        const sel = document.getElementById('varDatasetSelect');
+        if (sel && res.data && res.data.id) { sel.value = res.data.id; onVarDatasetChange(); }
+        showVarMsg('Đã tạo dataset "' + name + '".');
+      } else { showVarMsg('Lỗi: ' + (res.error && res.error.message), true); }
+    }
+
+    async function deleteCurrentDataset() {
+      if (!currentDatasetId) { showVarMsg('Chưa chọn dataset.', true); return; }
+      if (!confirm('Xóa dataset này sẽ xóa toàn bộ dữ liệu biến. Tiếp tục?')) return;
+      const res = await callIpc('variable.dataset.delete', { datasetId: currentDatasetId });
+      if (res.ok) { currentDatasetId = null; currentDatasetFields = []; await loadVarDatasets(); showVarMsg('Đã xóa dataset.'); }
+      else showVarMsg('Lỗi: ' + (res.error && res.error.message), true);
+    }
+
+    function showImportCsvModal() {
+      if (!currentDatasetId) { showVarMsg('Chọn dataset trước khi import CSV.', true); return; }
+      document.getElementById('csvImportText').value = '';
+      document.getElementById('csvPreviewResult').textContent = '';
+      showModal('importCsvModal');
+    }
+
+    async function submitCsvImport() {
+      const csvText = document.getElementById('csvImportText').value.trim();
+      if (!csvText) { alert('Dán nội dung CSV!'); return; }
+      const previewEl = document.getElementById('csvPreviewResult');
+      previewEl.textContent = 'Đang import...'; previewEl.style.color = 'var(--text-muted)';
+      const res = await callIpc('variable.csv.import', { datasetId: currentDatasetId, csvText });
+      if (res.ok) {
+        previewEl.textContent = 'Đã import ' + res.data.imported + ' profile!'; previewEl.style.color = 'var(--success)';
+        pendingVarEdits = {};
+        setTimeout(() => { hideModal('importCsvModal'); loadVarMatrix(); }, 1200);
+      } else { previewEl.textContent = 'Lỗi: ' + (res.error && res.error.message); previewEl.style.color = 'var(--danger)'; }
+    }
+
+    async function showVarPreview() {
+      if (!currentDatasetId) { showVarMsg('Chọn dataset trước.', true); return; }
+      const profilesRes = await callIpc('profile.list', {});
+      const profiles = (profilesRes.ok && profilesRes.data) ? profilesRes.data : [];
+      const res = await callIpc('variable.preview', { datasetId: currentDatasetId, profileIds: profiles.map(p => p.id), requiredFields: currentDatasetFields });
+      if (res.ok) {
+        const missing = res.data.items.filter(i => !i.is_valid).length;
+        showVarMsg(res.data.allValid ? 'Tất cả ' + profiles.length + ' profile đủ dữ liệu!' : missing + ' profile thiếu dữ liệu.', !res.data.allValid);
+      }
+    }
+
+    function showVarMsg(msg, isError) {
+      const el = document.getElementById('varMessage');
+      if (!el) return;
+      el.textContent = msg;
+      el.style.color = isError ? 'var(--danger)' : 'var(--success)';
+    }
+
+    // Hook: auto-load datasets when switching to variables tab
+    const _origSwitchView = window.switchView;
 
     // Diagnostics Export
     async function exportDiagnostics() {

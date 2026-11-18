@@ -77,7 +77,21 @@ export class ProxyRepository {
     }));
   }
 
+  public findActiveProfilesUsing(proxyId: string): { id: string; name: string }[] {
+    const rows = this.db.prepare(
+      'SELECT id, name FROM profiles WHERE proxy_id = ? AND deleted_at IS NULL ORDER BY created_at DESC'
+    ).all(proxyId) as { id: string; name: string }[];
+    return rows;
+  }
+
+  public detachFromSoftDeletedProfiles(proxyId: string): void {
+    this.db.prepare(
+      "UPDATE profiles SET proxy_mode = 'direct', proxy_id = NULL WHERE proxy_id = ? AND deleted_at IS NOT NULL"
+    ).run(proxyId);
+  }
+
   public delete(id: string): void {
+    this.detachFromSoftDeletedProfiles(id);
     this.db.prepare('DELETE FROM proxies WHERE id = ?').run(id);
   }
 }

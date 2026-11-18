@@ -59,6 +59,11 @@ export async function launchProfileBrowserContext(
       ...(u.username ? { username: decodeURIComponent(u.username) } : {}),
       ...(u.password ? { password: decodeURIComponent(u.password) } : {})
     };
+    // Prevent WebRTC STUN UDP packets from leaking the host's direct IP when running under a proxy.
+    launchArgs.push(
+      '--webrtc-ip-handling-policy=disable_non_proxied_udp',
+      '--force-webrtc-ip-handling-policy'
+    );
   }
 
   const viewport = profile.preset.viewport || { width: 1280, height: 720 };

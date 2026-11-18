@@ -34,10 +34,24 @@ export async function runProxyPreflight(options: PreflightOptions): Promise<Pref
   try {
     const relay = new URL(options.relayUrl);
     const target = new URL(targetUrl);
+    const isHttps = target.protocol === 'https:';
+    const targetPort = target.port ? parseInt(target.port, 10) : (isHttps ? 443 : 80);
+    const cleanHostname = target.hostname.startsWith('[') && target.hostname.endsWith(']')
+      ? target.hostname.slice(1, -1)
+      : target.hostname;
+    const connectAuthority = cleanHostname.includes(':') ? `[${cleanHostname}]:${targetPort}` : `${cleanHostname}:${targetPort}`;
 
     return await new Promise<PreflightResult>((resolve) => {
+      let settled = false;
+      const done = (res: PreflightResult) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(res);
+      };
+
       const timer = setTimeout(() => {
-        resolve({
+        done({
           status: 'UNREACHABLE',
           latencyMs: Date.now() - startTime,
           errorMessage: `Proxy preflight timed out after ${timeoutMs}ms`,
@@ -49,9 +63,9 @@ export async function runProxyPreflight(options: PreflightOptions): Promise<Pref
         host: relay.hostname,
         port: parseInt(relay.port, 10),
         method: 'CONNECT',
-        path: `${target.hostname}:${target.port || 443}`,
+        path: connectAuthority,
         headers: {
-          'Proxy-Authorization': `Basic ${Buffer.from(`${relay.username}:${relay.password}`).toString('base64')}`
+          'Proxy-Authorization': `Basic ${Buffer.from(`${decodeURIComponent(relay.username)}:${decodeURIComponent(relay.password)}`).toString('base64')}`
         }
       };
 
@@ -59,17 +73,16 @@ export async function runProxyPreflight(options: PreflightOptions): Promise<Pref
 
       req.on('connect', (res, rawSocket) => {
         if (res.statusCode !== 200) {
-          clearTimeout(timer);
           rawSocket.destroy();
-          if (res.statusCode === 407) {
-            return resolve({
+          if (res.statusCode === 407 || res.statusCode === 597) {
+            return done({
               status: 'AUTH_FAILED',
               latencyMs: Date.now() - startTime,
-              errorMessage: 'Proxy authentication failed (407)',
+              errorMessage: `Proxy authentication failed (${res.statusCode}${res.statusMessage ? ' ' + res.statusMessage : ''})`,
               timestamp
             });
           }
-          return resolve({
+          return done({
             status: 'UNREACHABLE',
             latencyMs: Date.now() - startTime,
             errorMessage: `Proxy CONNECT returned status ${res.statusCode}`,
@@ -77,69 +90,76 @@ export async function runProxyPreflight(options: PreflightOptions): Promise<Pref
           });
         }
 
-        // Establish TLS over the established CONNECT tunnel
-        const secureSocket = tls.connect({
-          socket: rawSocket,
-          servername: target.hostname,
-          rejectUnauthorized: true
-        }, () => {
-          // Send simple HTTP GET request
-          secureSocket.write(`GET ${target.pathname || '/'} HTTP/1.1\r\nHost: ${target.hostname}\r\nUser-Agent: MultiProfile-Preflight/1.0\r\nConnection: close\r\n\r\n`);
-        });
+        const requestPath = `${target.pathname || '/'}${target.search || ''}`;
+        const hostHeader = target.host;
+        const rawGet = `GET ${requestPath} HTTP/1.1\r\nHost: ${hostHeader}\r\nUser-Agent: MultiProfile-Preflight/1.0\r\nConnection: close\r\n\r\n`;
 
-        let data = '';
-        secureSocket.on('data', (chunk) => {
-          data += chunk.toString();
-        });
-
-        secureSocket.on('end', () => {
-          clearTimeout(timer);
-          const latencyMs = Date.now() - startTime;
-          const statusMatch = data.match(/^HTTP\/1\.[01]\s+(\d{3})/i);
-          const statusCode = statusMatch ? parseInt(statusMatch[1], 10) : 0;
-
-          if (statusCode >= 200 && statusCode < 300) {
-            const ipMatch = data.match(/ip=([^\r\n]+)/);
-            const ipEcho = ipMatch ? ipMatch[1].trim() : undefined;
-            return resolve({
-              status: 'READY',
-              latencyMs,
-              ipEcho,
-              timestamp
-            });
-          } else if (statusCode === 403) {
-            return resolve({
-              status: 'TARGET_BLOCKED',
-              latencyMs,
-              errorMessage: 'Target returned 403 Forbidden',
-              timestamp
-            });
-          } else {
-            return resolve({
-              status: 'CHECK_INCONCLUSIVE',
-              latencyMs,
-              errorMessage: `Unexpected target status: ${statusCode}`,
-              timestamp
-            });
-          }
-        });
-
-        secureSocket.on('error', (err) => {
-          clearTimeout(timer);
-          const msg = err.message.toLowerCase();
-          const isTls = msg.includes('cert') || msg.includes('handshake') || msg.includes('tls');
-          resolve({
-            status: isTls ? 'TLS_FAILED' : 'UNREACHABLE',
-            latencyMs: Date.now() - startTime,
-            errorMessage: err.message,
-            timestamp
+        const attachStreamHandlers = (stream: NodeJS.ReadWriteStream, isTlsStream: boolean) => {
+          let data = '';
+          stream.on('data', (chunk) => {
+            data += chunk.toString();
           });
-        });
+
+          stream.on('end', () => {
+            const latencyMs = Date.now() - startTime;
+            const statusMatch = data.match(/^HTTP\/1\.[01]\s+(\d{3})/i);
+            const statusCode = statusMatch ? parseInt(statusMatch[1], 10) : 0;
+
+            if (statusCode >= 200 && statusCode < 300) {
+              const ipMatch = data.match(/ip=([^\r\n]+)/) || data.match(/"origin"\s*:\s*"([^"]+)"/);
+              const ipEcho = ipMatch ? ipMatch[1].trim() : undefined;
+              return done({
+                status: 'READY',
+                latencyMs,
+                ipEcho,
+                timestamp
+              });
+            } else if (statusCode === 403) {
+              return done({
+                status: 'TARGET_BLOCKED',
+                latencyMs,
+                errorMessage: 'Target returned 403 Forbidden',
+                timestamp
+              });
+            } else {
+              return done({
+                status: 'CHECK_INCONCLUSIVE',
+                latencyMs,
+                errorMessage: `Unexpected target status: ${statusCode}`,
+                timestamp
+              });
+            }
+          });
+
+          stream.on('error', (err: Error) => {
+            const msg = err.message.toLowerCase();
+            const isTls = isTlsStream && (msg.includes('cert') || msg.includes('handshake') || msg.includes('tls') || msg.includes('ssl'));
+            done({
+              status: isTls ? 'TLS_FAILED' : 'UNREACHABLE',
+              latencyMs: Date.now() - startTime,
+              errorMessage: err.message,
+              timestamp
+            });
+          });
+        };
+
+        if (isHttps) {
+          const secureSocket = tls.connect({
+            socket: rawSocket,
+            servername: cleanHostname,
+            rejectUnauthorized: true
+          }, () => {
+            secureSocket.write(rawGet);
+          });
+          attachStreamHandlers(secureSocket, true);
+        } else {
+          attachStreamHandlers(rawSocket, false);
+          rawSocket.write(rawGet);
+        }
       });
 
       req.on('error', (err) => {
-        clearTimeout(timer);
-        resolve({
+        done({
           status: 'UNREACHABLE',
           latencyMs: Date.now() - startTime,
           errorMessage: err.message,
